@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nimbusguard
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: nimbusguard
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          env:
+            - name: DEBUG
+              value: "false"
+            - name: LOG_LEVEL
+              value: "info"
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10

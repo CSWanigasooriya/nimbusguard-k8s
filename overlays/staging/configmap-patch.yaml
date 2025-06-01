@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nimbusguard-config
+data:
+  LOG_LEVEL: "info"
+  ENVIRONMENT: "staging"
+  DEBUG: "false"
+  METRICS_ENABLED: "true"
+  CORS_ENABLED: "true"
+  RATE_LIMITING_ENABLED: "true" 

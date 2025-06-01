@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nimbusguard
+  labels:
+    name: nimbusguard
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/instance: nimbusguard
+    app.kubernetes.io/component: namespace 

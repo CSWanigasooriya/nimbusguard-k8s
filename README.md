@@ -1,83 +1,280 @@
-# NimbusGuard Kubernetes Configurations
+# NimbusGuard Kubernetes Deployment
 
-This repository contains Kubernetes configurations for deploying NimbusGuard.
+This directory contains the Kubernetes manifests and deployment tools for NimbusGuard, organized using Kustomize and following cloud-native best practices.
 
-## Structure
+## 📁 Project Structure
 
-- `deployment.yaml`: Main deployment configuration with node affinity and topology spread
-- `service.yaml`: Service configuration for exposing the deployment
-
-## Node Requirements
-
-The deployment is configured to:
-- Run only on worker nodes (avoiding control-plane nodes)
-- Spread pods evenly across available nodes
-- Run 2 replicas for high availability
-
-## Deployment
-
-To deploy NimbusGuard on Kubernetes:
-
-1. Ensure your nodes are ready:
-```bash
-kubectl get nodes
+```
+k8s-nimbusguard/
+├── base/                           # Base Kubernetes resources
+│   ├── kustomization.yaml         # Base kustomization configuration
+│   ├── namespace.yaml             # Namespace definition
+│   ├── deployment.yaml            # Application deployment
+│   ├── service.yaml               # Service definition
+│   ├── configmap.yaml             # Configuration map
+│   ├── hpa.yaml                   # Horizontal Pod Autoscaler
+│   └── servicemonitor.yaml        # Prometheus ServiceMonitor
+├── overlays/                       # Environment-specific overlays
+│   ├── development/               # Development environment
+│   │   ├── kustomization.yaml
+│   │   ├── deployment-patch.yaml
+│   │   ├── configmap-patch.yaml
+│   │   ├── ingress.yaml
+│   │   └── networkpolicy.yaml
+│   ├── staging/                   # Staging environment
+│   │   ├── kustomization.yaml
+│   │   ├── deployment-patch.yaml
+│   │   ├── configmap-patch.yaml
+│   │   ├── ingress.yaml
+│   │   └── networkpolicy.yaml
+│   └── production/                # Production environment
+│       ├── kustomization.yaml
+│       ├── deployment-patch.yaml
+│       ├── configmap-patch.yaml
+│       ├── hpa-patch.yaml
+│       ├── pdb.yaml
+│       ├── ingress.yaml
+│       └── networkpolicy.yaml
+├── monitoring/                     # Monitoring stack
+│   ├── kustomization.yaml
+│   ├── servicemonitor.yaml
+│   ├── prometheusrule.yaml
+│   └── grafana-dashboard.yaml
+├── scripts/
+│   └── apply-manifests.sh         # Deployment automation script
+├── kustomization.yaml             # Root kustomization
+└── README.md                      # This file
 ```
 
-2. Build and load the Docker image on your worker nodes:
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Kubernetes cluster (v1.20+)
+- `kubectl` configured to access your cluster
+- `kustomize` (optional, kubectl has built-in support)
+
+### Deploy to Development
+
 ```bash
-docker build -t nimbusguard:latest .
+# Deploy everything to development environment
+./scripts/apply-manifests.sh
+
+# Deploy with port forwarding
+./scripts/apply-manifests.sh --port-forward
+
+# Deploy only the application
+./scripts/apply-manifests.sh --app-only
 ```
 
-3. Apply the configurations:
+### Deploy to Production
+
 ```bash
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
+# Deploy to production (with confirmation prompt)
+./scripts/apply-manifests.sh -e production
+
+# Preview what would be deployed (dry run)
+./scripts/apply-manifests.sh -e production --dry-run
 ```
 
-4. Verify the deployment:
+## 🛠️ Deployment Script Usage
+
+The `apply-manifests.sh` script provides a comprehensive deployment tool with the following options:
+
 ```bash
-kubectl get deployments
-kubectl get pods -o wide  # Shows which nodes pods are scheduled on
-kubectl get services
+Usage: ./scripts/apply-manifests.sh [OPTIONS]
+
+Options:
+  -e, --environment ENV   Target environment (development|staging|production) [default: development]
+  --app-only             Deploy only the application
+  --monitoring-only      Deploy only the monitoring stack
+  --no-monitoring        Skip monitoring stack installation
+  --no-app              Skip application deployment
+  --port-forward        Start port forwarding after deployment
+  --port-forward-only   Only start port forwarding (no deployment)
+  --cleanup             Only perform cleanup (remove all components)
+  --dry-run             Show what would be applied without actually applying
+  -v, --verbose         Enable verbose output
+  -h, --help            Show this help message
+
+Examples:
+  ./scripts/apply-manifests.sh                                    # Deploy to development environment
+  ./scripts/apply-manifests.sh -e production                     # Deploy to production environment
+  ./scripts/apply-manifests.sh --app-only -e staging            # Deploy only app to staging
+  ./scripts/apply-manifests.sh --monitoring-only                # Deploy only monitoring stack
+  ./scripts/apply-manifests.sh --port-forward                   # Deploy and start port forwarding
+  ./scripts/apply-manifests.sh --cleanup                        # Clean up all resources
+  ./scripts/apply-manifests.sh --dry-run -e production          # Preview production deployment
 ```
 
-## Configuration Details
+## 🌍 Environment Configurations
 
-### Deployment Configuration
-- **Replicas**: 2 pods for high availability
-- **Node Affinity**: Pods scheduled only on worker nodes
-- **Topology Spread**: Pods distributed evenly across nodes
-- **Resource Limits**:
-  - CPU limit: 2 cores
-  - Memory limit: 2GB
-  - CPU request: 500m
-  - Memory request: 512MB
-- **Health check endpoint**: `/health`
-- **Service port**: 8000
+### Development
+- **Replicas**: 1
+- **Resources**: Low (100m CPU, 128Mi memory)
+- **Debug**: Enabled
+- **CORS**: Enabled
+- **Rate Limiting**: Disabled
+- **Ingress**: `nimbusguard.local` (no TLS)
 
-### Service Configuration
-- Type: ClusterIP
-- Port: 8000
+### Staging
+- **Replicas**: 2
+- **Resources**: Medium (300m CPU, 256Mi memory)
+- **Debug**: Disabled
+- **CORS**: Enabled
+- **Rate Limiting**: Enabled
+- **Ingress**: `nimbusguard-staging.example.com` (TLS enabled)
 
-## Troubleshooting
+### Production
+- **Replicas**: 3 (min), 20 (max)
+- **Resources**: High (500m CPU, 512Mi memory)
+- **Debug**: Disabled
+- **CORS**: Disabled
+- **Rate Limiting**: Enabled
+- **Ingress**: `nimbusguard.example.com` (TLS enabled)
+- **PDB**: Minimum 2 pods available
+- **HPA**: Aggressive scaling
 
-1. If pods are not scheduling:
+## 📊 Monitoring
+
+The monitoring stack includes:
+
+- **ServiceMonitor**: Prometheus metrics collection
+- **PrometheusRule**: Alerting rules for:
+  - High CPU usage (>80%)
+  - High memory usage (>80%)
+  - Pod down alerts
+  - High error rate (>10%)
+- **Grafana Dashboard**: Application metrics visualization
+
+### Accessing Monitoring
+
 ```bash
-kubectl describe pod <pod-name>
+# Start port forwarding for monitoring services
+./scripts/apply-manifests.sh --port-forward-only
+
+# Access services:
+# - Grafana: http://localhost:3000 (admin/admin)
+# - Prometheus: http://localhost:9090
+# - NimbusGuard: http://localhost:8080
 ```
 
-2. Check node status:
+## 🔧 Manual Deployment with Kustomize
+
+If you prefer to use kustomize directly:
+
 ```bash
-kubectl describe node <node-name>
+# Deploy to development
+kubectl apply -k overlays/development
+
+# Deploy to production
+kubectl apply -k overlays/production
+
+# Deploy monitoring
+kubectl apply -k monitoring
+
+# Build and preview (dry run)
+kustomize build overlays/production
 ```
 
-3. View pod logs:
+## 🔒 Security Features
+
+### Network Policies
+- Ingress: Only from ingress-nginx and monitoring namespaces
+- Egress: DNS, HTTPS/HTTP, and database connections only
+
+### Pod Security
+- Non-root user (65534)
+- Read-only root filesystem
+- No privilege escalation
+- Dropped capabilities
+
+### Resource Limits
+- CPU and memory limits enforced
+- Horizontal Pod Autoscaler for scaling
+- Pod Disruption Budget for availability
+
+## 🏗️ Architecture Decisions
+
+### Kustomize Structure
+- **Base**: Common resources shared across environments
+- **Overlays**: Environment-specific configurations
+- **Patches**: Strategic merge patches for customization
+
+### Best Practices Implemented
+- ✅ Namespace isolation
+- ✅ Resource quotas and limits
+- ✅ Health checks (liveness/readiness probes)
+- ✅ Security contexts
+- ✅ Network policies
+- ✅ Horizontal Pod Autoscaling
+- ✅ Pod Disruption Budgets
+- ✅ Monitoring and alerting
+- ✅ Configuration management
+- ✅ Multi-environment support
+
+## 🔍 Troubleshooting
+
+### Check Deployment Status
 ```bash
-kubectl logs <pod-name>
+# Application status
+kubectl get all -n nimbusguard
+
+# Pod logs
+kubectl logs -f deployment/nimbusguard -n nimbusguard
+
+# HPA status
+kubectl get hpa -n nimbusguard
+
+# Events
+kubectl get events -n nimbusguard --sort-by='.lastTimestamp'
 ```
 
-## Notes
+### Common Issues
 
-- Make sure the Docker image is available on all worker nodes
-- The service is configured as ClusterIP by default
-- Pods will only schedule on nodes without the control-plane role 
+1. **Image Pull Errors**: Ensure the Docker image is built and available
+2. **Resource Constraints**: Check if cluster has sufficient resources
+3. **Network Policies**: Verify ingress controller and monitoring namespaces are labeled correctly
+4. **TLS Issues**: Ensure cert-manager is installed for production/staging
+
+### Cleanup
+```bash
+# Remove everything
+./scripts/apply-manifests.sh --cleanup
+
+# Or manually
+kubectl delete namespace nimbusguard
+kubectl delete namespace monitoring
+```
+
+## 📝 Customization
+
+### Adding New Environments
+1. Create a new overlay directory under `overlays/`
+2. Add `kustomization.yaml` with base reference
+3. Add environment-specific patches
+4. Update the deployment script to recognize the new environment
+
+### Modifying Resources
+1. Edit base resources for changes across all environments
+2. Use patches in overlays for environment-specific changes
+3. Test with `--dry-run` before applying
+
+### Adding Monitoring
+1. Add new ServiceMonitors to `monitoring/`
+2. Update PrometheusRules for new alerts
+3. Add Grafana dashboards as ConfigMaps
+
+## 🤝 Contributing
+
+1. Follow the existing structure and naming conventions
+2. Test changes with `--dry-run` first
+3. Ensure all environments are tested
+4. Update documentation for any new features
+
+## 📚 References
+
+- [Kustomize Documentation](https://kustomize.io/)
+- [Kubernetes Best Practices](https://kubernetes.io/docs/concepts/configuration/overview/)
+- [Prometheus Operator](https://prometheus-operator.dev/)
+- [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/) 

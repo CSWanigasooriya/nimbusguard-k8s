@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: nimbusguard-staging
+
+namespace: nimbusguard
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - networkpolicy.yaml
+
+patches:
+  - path: deployment-patch.yaml
+  - path: configmap-patch.yaml
+
+# Staging image tag
+images:
+  - name: nimbusguard
+    newTag: latest
+
+# Add staging labels
+labels:
+  - pairs:
+      environment: staging
+  
+# Add annotations for staging
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+  managed-by: kustomize-staging 
