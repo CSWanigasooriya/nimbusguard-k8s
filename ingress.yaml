@@ -16,7 +16,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: localhost  # Allow access through localhost
+  - host: localhost
     http:
       paths:
       - path: /
