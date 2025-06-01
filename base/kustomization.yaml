@@ -13,7 +13,6 @@ resources:
   - service.yaml
   - configmap.yaml
   - hpa.yaml
-  - servicemonitor.yaml
 
 # Common labels applied to all resources
 labels:

@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 ENVIRONMENT="development"
 DEPLOY_MONITORING=true
 DEPLOY_APP=true
-START_PORT_FORWARDING=false
+START_PORT_FORWARDING=true
 PORT_FORWARD_ONLY=false
 CLEANUP_ONLY=false
 STATUS_ONLY=false
@@ -37,6 +37,7 @@ show_usage() {
     echo "  --no-monitoring        Skip monitoring stack installation"
     echo "  --no-app              Skip application deployment"
     echo "  --port-forward        Start port forwarding after deployment"
+    echo "  --no-port-forwarding  Skip port forwarding after deployment"
     echo "  --port-forward-only   Only start port forwarding (no deployment)"
     echo "  --status              Show deployment status and exit"
     echo "  --cleanup             Only perform cleanup (remove all components)"
@@ -45,11 +46,12 @@ show_usage() {
     echo "  -h, --help            Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo "  $0                                    # Deploy to development environment"
-    echo "  $0 -e production                     # Deploy to production environment"
-    echo "  $0 --app-only -e staging            # Deploy only app to staging"
+    echo "  $0                                    # Deploy everything and start port forwarding"
+    echo "  $0 -e production                     # Deploy to production and start port forwarding"
+    echo "  $0 --app-only -e staging            # Deploy only app to staging (no port forwarding)"
     echo "  $0 --monitoring-only                # Deploy only monitoring stack"
-    echo "  $0 --port-forward                   # Deploy and start port forwarding"
+    echo "  $0 --no-port-forwarding             # Deploy everything but skip port forwarding"
+    echo "  $0 --port-forward-only              # Only start port forwarding (no deployment)"
     echo "  $0 --status                         # Check current deployment status"
     echo "  $0 --cleanup                        # Clean up all resources"
     echo "  $0 --dry-run -e production          # Preview production deployment"
@@ -86,6 +88,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --port-forward)
             START_PORT_FORWARDING=true
+            shift
+            ;;
+        --no-port-forwarding)
+            START_PORT_FORWARDING=false
             shift
             ;;
         --port-forward-only)
@@ -227,7 +233,7 @@ apply_kustomize() {
     fi
     
     $KUSTOMIZE_CMD $KUSTOMIZE_SUBCOMMAND "$overlay_path" | kubectl apply -f -
-    print_status "$description applied successfully"
+    print_status "$description applied successfully" "success"
 }
 
 # Function to wait for pods to be ready
@@ -246,7 +252,7 @@ wait_for_pods() {
         return 0
     else
         echo -e "${YELLOW}⚠ Pods are not ready within timeout. Current status:${NC}"
-        kubectl get pods -n "$namespace" -l "$label_selector"
+        kubectl get pods -n "$namespace"
         return 1
     fi
 }
@@ -259,7 +265,7 @@ wait_for_deployment() {
     
     echo -e "${YELLOW}Waiting for $deployment deployment to be ready...${NC}"
     if kubectl rollout status deployment/"$deployment" -n "$namespace" --timeout="$timeout"; then
-        print_status "$deployment deployment is ready"
+        print_status "$deployment deployment is ready" "success"
         
         # Also wait for pods to be ready
         wait_for_pods "$namespace" "app=$deployment" "60"
@@ -309,12 +315,131 @@ deploy_monitoring() {
     if ! kubectl get namespace monitoring &>/dev/null; then
         echo -e "${YELLOW}Creating monitoring namespace...${NC}"
         kubectl create namespace monitoring
-        print_status "Monitoring namespace created"
+        print_status "Monitoring namespace created" "success"
     fi
     
-    apply_kustomize "$monitoring_path" "Monitoring stack"
+    # Check if Helm is available for installing Prometheus Operator
+    if command -v helm &> /dev/null; then
+        echo -e "${YELLOW}Installing Prometheus Operator with Helm...${NC}"
+        
+        # Add prometheus-community repo if not exists
+        if ! helm repo list | grep -q prometheus-community; then
+            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+            helm repo update
+        fi
+        
+        # Install or upgrade kube-prometheus-stack
+        if helm list -n monitoring | grep -q prometheus; then
+            echo -e "${YELLOW}Upgrading existing Prometheus stack...${NC}"
+            helm upgrade prometheus prometheus-community/kube-prometheus-stack \
+                --namespace monitoring \
+                --set grafana.adminPassword=admin \
+                --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+                --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false
+        else
+            echo -e "${YELLOW}Installing Prometheus stack...${NC}"
+            helm install prometheus prometheus-community/kube-prometheus-stack \
+                --namespace monitoring \
+                --set grafana.adminPassword=admin \
+                --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+                --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false
+        fi
+        
+        print_status "Prometheus Operator installed via Helm" "success"
+    else
+        echo -e "${YELLOW}Helm not found. Installing Prometheus Operator via kubectl...${NC}"
+        
+        # Install Prometheus Operator via kubectl
+        kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.68.0/bundle.yaml
+        
+        # Create a basic Prometheus instance
+        cat <<EOF | kubectl apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  serviceAccountName: prometheus
+  serviceMonitorSelector: {}
+  ruleSelector: {}
+  resources:
+    requests:
+      memory: 400Mi
+  retention: 24h
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: monitoring
+EOF
+        
+        print_status "Prometheus Operator installed via kubectl" "success"
+    fi
     
     if [ "$DRY_RUN" = false ]; then
+        echo -e "${YELLOW}Waiting for monitoring CRDs to be ready...${NC}"
+        
+        # Wait for ServiceMonitor CRD to be available
+        local timeout=120
+        local counter=0
+        while ! kubectl get crd servicemonitors.monitoring.coreos.com &>/dev/null; do
+            if [ $counter -ge $timeout ]; then
+                echo -e "${YELLOW}⚠ ServiceMonitor CRD not ready after ${timeout}s, continuing anyway...${NC}"
+                break
+            fi
+            sleep 2
+            counter=$((counter + 2))
+            echo -n "."
+        done
+        echo ""
+        
+        if kubectl get crd servicemonitors.monitoring.coreos.com &>/dev/null; then
+            echo -e "${GREEN}✓ Monitoring CRDs are ready${NC}"
+            
+            # Now apply our custom monitoring resources
+            echo -e "${YELLOW}Applying custom monitoring resources...${NC}"
+            apply_kustomize "$monitoring_path" "Custom monitoring resources"
+        else
+            echo -e "${RED}✗ Failed to install monitoring CRDs${NC}"
+            return 1
+        fi
+        
         echo -e "${YELLOW}Monitoring resources deployed. Check status with:${NC}"
         echo -e "  kubectl get all -n monitoring"
     fi
@@ -610,6 +735,23 @@ show_status() {
     fi
 }
 
+# Function to check if monitoring CRDs are available
+check_monitoring_crds() {
+    if [ "$DEPLOY_MONITORING" = false ] && [ "$DEPLOY_APP" = true ]; then
+        # Check if ServiceMonitor CRD exists
+        if ! kubectl get crd servicemonitors.monitoring.coreos.com &>/dev/null; then
+            echo -e "${YELLOW}⚠ Warning: ServiceMonitor CRD not found. Monitoring stack may not be installed.${NC}"
+            echo -e "${YELLOW}  The application includes ServiceMonitor resources that require Prometheus Operator.${NC}"
+            echo -e "${YELLOW}  Consider running with monitoring enabled: $0 --monitoring-only first${NC}"
+            read -p "Continue anyway? (yes/no): " confirm
+            if [ "$confirm" != "yes" ]; then
+                echo -e "${YELLOW}Deployment cancelled.${NC}"
+                exit 0
+            fi
+        fi
+    fi
+}
+
 # Main execution
 main() {
     echo -e "${GREEN}===========================================${NC}"
@@ -652,14 +794,16 @@ main() {
     check_kubectl
     check_kustomize
     check_cluster
+    check_monitoring_crds
 
     # Deploy components based on flags
-    if [ "$DEPLOY_APP" = true ]; then
-        deploy_application
-    fi
-
+    # Deploy monitoring first so CRDs are available for ServiceMonitor
     if [ "$DEPLOY_MONITORING" = true ]; then
         deploy_monitoring
+    fi
+
+    if [ "$DEPLOY_APP" = true ]; then
+        deploy_application
     fi
 
     # Show status if not dry run

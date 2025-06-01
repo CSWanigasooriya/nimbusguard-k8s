@@ -2,6 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: nimbusguard-alerts
+  namespace: monitoring
   labels:
     app: nimbusguard
     app.kubernetes.io/component: monitoring
