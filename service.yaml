@@ -3,10 +3,10 @@ kind: Service
 metadata:
   name: nimbusguard
 spec:
+  type: ClusterIP
   selector:
     app: nimbusguard
   ports:
     - protocol: TCP
       port: 8000
-      targetPort: 8000
-  type: ClusterIP 
+      targetPort: 8000 
