@@ -3,10 +3,12 @@ kind: Service
 metadata:
   name: nimbusguard
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: nimbusguard
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 8000
-      targetPort: 8000 
+      targetPort: 8000
+      nodePort: 30080  # This will be consistent across restarts 
