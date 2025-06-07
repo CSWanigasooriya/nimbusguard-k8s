@@ -1,0 +1,311 @@
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: kafka
+spec:
+  ports:
+  - port: 9092
+    name: kafka
+  - port: 9093
+    name: kafka-controller
+  selector:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: kafka
+
+---
+# Kafka ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: kafka
+data:
+  server.properties: |
+    # KRaft mode configuration
+    process.roles=broker,controller
+    node.id=1
+    controller.quorum.voters=1@localhost:9093
+    controller.listener.names=CONTROLLER
+    listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+    listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+    advertised.listeners=PLAINTEXT://kafka:9092
+    inter.broker.listener.name=PLAINTEXT
+    
+    # Cluster configuration
+    broker.id=1
+    offsets.topic.replication.factor=1
+    transaction.state.log.replication.factor=1
+    transaction.state.log.min.isr=1
+    
+    # Log configuration
+    log.dirs=/tmp/kraft-combined-logs
+    log.retention.hours=24
+    log.segment.bytes=1073741824
+    log.cleanup.policy=delete
+    
+    # Topic configuration
+    auto.create.topics.enable=true
+    delete.topic.enable=true
+    num.partitions=3
+    default.replication.factor=1
+    
+    # Performance tuning
+    num.network.threads=3
+    num.io.threads=8
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    
+    # Memory and storage
+    replica.fetch.max.bytes=1048576
+    message.max.bytes=1048576
+  
+  custom-log4j.properties: |
+    log4j.rootLogger=WARN, stdout
+
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+    # Set all major Kafka loggers to WARN or ERROR
+    log4j.logger.kafka=WARN
+    log4j.logger.org.apache.kafka=WARN
+    log4j.logger.kafka.controller=WARN
+    log4j.logger.kafka.producer.async.DefaultEventHandler=ERROR
+    log4j.logger.kafka.request.logger=WARN
+    log4j.logger.kafka.network.RequestChannel$=WARN
+    log4j.logger.kafka.log.LogCleaner=WARN
+    log4j.logger.state.change.logger=WARN
+    log4j.logger.kafka.authorizer.logger=WARN
+    log4j.logger.kafka.coordinator.group.GroupCoordinator=WARN
+    log4j.logger.kafka.coordinator.group.GroupMetadataManager=WARN
+    log4j.logger.kafka.coordinator.group.GroupMetadataManager$=WARN
+    log4j.logger.kafka.coordinator.group.GroupMetadata$=WARN
+
+---
+# Kafka Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nimbusguard
+      app.kubernetes.io/component: kafka
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nimbusguard
+        app.kubernetes.io/component: kafka
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9308"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.5.0
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 9093
+          name: controller
+        env:
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_KRAFT_MODE
+          value: "true"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@localhost:9093"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:9092"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "PLAINTEXT"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_KRAFT_MODE
+          value: "true"
+        - name: KAFKA_LOG_DIRS
+          value: "/tmp/kraft-combined-logs"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: KAFKA_DELETE_TOPIC_ENABLE
+          value: "true"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "24"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "1073741824"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "3"
+        - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+          value: "1"
+        - name: CLUSTER_ID
+          value: "K7DeG7KMS1ucKSgxDZfoAQ"
+        - name: KAFKA_LOG4J_OPTS
+          value: "-Dlog4j.configuration=file:/opt/kafka/config/custom-log4j.properties"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka
+        - name: kafka-config
+          mountPath: /etc/kafka/server.properties
+          subPath: server.properties
+          readOnly: true
+        - name: kafka-config
+          mountPath: /opt/kafka/config/custom-log4j.properties
+          subPath: custom-log4j.properties
+          readOnly: true
+        command:
+        - bash
+        - -c
+        - |
+          # Initialize KRaft storage if needed
+          if [ ! -d "/tmp/kraft-combined-logs" ]; then
+            echo "Initializing KRaft storage..."
+            kafka-storage format -t $CLUSTER_ID -c /etc/kafka/server.properties --ignore-formatted
+          fi
+          
+          # Start Kafka
+          echo "Starting Kafka in KRaft mode..."
+          kafka-server-start /etc/kafka/server.properties
+      volumes:
+      - name: kafka-data
+        emptyDir: {}
+      - name: kafka-config
+        configMap:
+          name: kafka-config
+
+---
+# Kafka Topics Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: kafka-init
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nimbusguard
+        app.kubernetes.io/component: kafka-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: kafka-topics-init
+        image: confluentinc/cp-kafka:7.5.0
+        command:
+        - bash
+        - -c
+        - |
+          echo "Waiting for Kafka to be ready..."
+          until kafka-topics --bootstrap-server kafka:9092 --list; do
+            echo "Kafka not ready yet, waiting..."
+            sleep 5
+          done
+          
+          echo "Creating NimbusGuard topics..."
+          
+          # Create scaling events topic
+          kafka-topics --bootstrap-server kafka:9092 \
+            --create --if-not-exists \
+            --topic nimbusguard.scaling.events \
+            --partitions 3 \
+            --replication-factor 1 \
+            --config retention.ms=86400000
+          
+          # Create metrics topic
+          kafka-topics --bootstrap-server kafka:9092 \
+            --create --if-not-exists \
+            --topic nimbusguard.metrics \
+            --partitions 3 \
+            --replication-factor 1 \
+            --config retention.ms=86400000
+          
+          # Create decisions topic
+          kafka-topics --bootstrap-server kafka:9092 \
+            --create --if-not-exists \
+            --topic nimbusguard.decisions \
+            --partitions 3 \
+            --replication-factor 1 \
+            --config retention.ms=86400000
+          
+          # Create actions topic
+          kafka-topics --bootstrap-server kafka:9092 \
+            --create --if-not-exists \
+            --topic nimbusguard.actions \
+            --partitions 3 \
+            --replication-factor 1 \
+            --config retention.ms=86400000
+          
+          echo "Topics created successfully!"
+          kafka-topics --bootstrap-server kafka:9092 --list
+      initContainers:
+      - name: wait-for-kafka
+        image: busybox:1.35
+        command: 
+        - sh
+        - -c
+        - |
+          echo "Waiting for Kafka service to be available..."
+          until nc -z kafka 9092; do
+            echo "Kafka not ready, waiting..."
+            sleep 5
+          done
+          echo "Kafka service is ready!" 

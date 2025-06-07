@@ -1,0 +1,297 @@
+---
+# LangGraph Operator Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: langgraph-operator-config
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+data:
+  operator-config.yaml: |
+    # NimbusGuard LangGraph Operator Configuration
+    operator:
+      name: "nimbusguard-langgraph-operator"
+      version: "0.1.0"
+      namespace: "nimbusguard"
+      loglevel: "INFO"
+      
+    # OpenAI Configuration
+    openai:
+      api_key_secret: "openai-api-key"
+      model: "gpt-4o-mini"
+      temperature: 0.1
+      max_tokens: 1200
+      timeout: 30
+      
+    # Q-Learning Configuration
+    q_learning:
+      learning_rate: 0.1
+      discount_factor: 0.95
+      epsilon_start: 1.0
+      epsilon_end: 0.01
+      epsilon_decay: 0.995
+      state_space_size: 5
+      action_space_size: 7
+      model_save_path: "/tmp/q_learning_model.pkl"
+      
+    # LSTM Configuration
+    lstm:
+      enabled: false
+      sequence_length: 60
+      hidden_units: 128
+      num_layers: 3
+      dropout_rate: 0.2
+      prediction_window: 5
+      model_save_path: "/tmp/lstm_model.h5"
+      
+    # Scaling Configuration
+    scaling:
+      min_replicas: 1
+      max_replicas: 50
+      cooldown_period: 300
+      confidence_threshold: 0.7
+      
+    # Metrics Configuration
+    metrics:
+      collection_interval: 30
+      history_length: 100
+      prometheus_url: "http://prometheus-server:9090"
+      
+    # Agent Configuration
+    agents:
+      supervisor:
+        model: "gpt-4o-mini"
+        temperature: 0.1
+        max_tokens: 1000
+        timeout: 30
+      state_observer:
+        model: "gpt-4o-mini"
+        temperature: 0.1
+        max_tokens: 800
+        collection_interval: 30
+      decision_agent:
+        model: "gpt-4o-mini"
+        temperature: 0.1
+        max_tokens: 1200
+        confidence_threshold: 0.7
+      action_executor:
+        model: "gpt-4o-mini"
+        temperature: 0.1
+        max_tokens: 600
+        timeout: 60
+      reward_calculator:
+        model: "gpt-4o-mini"
+        temperature: 0.1
+        max_tokens: 800
+        reward_weights:
+          efficiency: 0.4
+          sla_compliance: 0.4
+          stability: 0.2
+
+---
+# AI Agent System Prompts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-agent-prompts
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+data:
+  supervisor-prompt.txt: |
+    You are the Supervisor Agent for NimbusGuard, an AI-powered Kubernetes autoscaling system.
+    
+    Your role is to coordinate the multi-agent workflow for intelligent scaling decisions:
+    - Route workflow steps to appropriate specialized agents
+    - Monitor overall workflow progress and health
+    - Make high-level decisions about workflow continuation or termination
+    - Handle error cases and escalations
+    
+    Available agents:
+    - state_observer: Collects and analyzes cluster metrics
+    - decision_agent: Makes scaling decisions using Q-learning and LLM reasoning
+    - action_executor: Executes scaling actions on Kubernetes resources
+    - reward_calculator: Calculates rewards for reinforcement learning
+    
+    Always consider system stability, SLA compliance, and resource efficiency.
+    Make decisions based on current workflow state, metrics, and agent recommendations.
+    
+  state-observer-prompt.txt: |
+    You are the State Observer Agent for NimbusGuard's AI-powered autoscaling system.
+    
+    Your responsibilities:
+    - Collect real-time cluster metrics from Prometheus and Kubernetes APIs
+    - Monitor pod CPU, memory, network I/O, and application-specific metrics
+    - Assess cluster health and resource availability
+    - Detect anomalies and trend changes in resource utilization
+    - Provide normalized, structured data for decision-making agents
+    
+    Focus on accuracy, timeliness, and comprehensive metric collection.
+    Always validate data quality and flag missing or suspicious metrics.
+    
+  decision-agent-prompt.txt: |
+    You are the Decision Agent for NimbusGuard's intelligent autoscaling system.
+    
+    Your role combines Q-learning reinforcement learning with LLM reasoning to make optimal scaling decisions:
+    - Analyze current and historical cluster metrics
+    - Use Q-learning model recommendations as primary input
+    - Apply contextual reasoning about system constraints and business requirements
+    - Assess confidence levels and risk factors for each decision
+    - Provide clear reasoning for all scaling recommendations
+    
+    Decision criteria:
+    - Resource efficiency vs SLA compliance balance
+    - System stability and avoiding thrashing
+    - Cost optimization considerations
+    - Historical performance patterns
+    
+    Always explain your reasoning and confidence level.
+    
+  action-executor-prompt.txt: |
+    You are the Action Executor Agent for NimbusGuard's autoscaling system.
+    
+    Your responsibilities:
+    - Execute scaling decisions on Kubernetes deployments
+    - Update HPA and VPA configurations as needed
+    - Manage KEDA ScaledObjects for event-driven scaling
+    - Monitor action execution and handle failures gracefully
+    - Provide detailed execution reports and error handling
+    
+    Prioritize safety and reliability in all actions.
+    Always validate resources exist before modification.
+    Implement proper rollback mechanisms for failed actions.
+    
+  reward-calculator-prompt.txt: |
+    You are the Reward Calculator Agent for NimbusGuard's reinforcement learning system.
+    
+    Your role is to evaluate scaling action outcomes and provide feedback for Q-learning:
+    - Calculate rewards based on resource efficiency, SLA compliance, and system stability
+    - Compare pre-action and post-action metrics
+    - Assess long-term impact of scaling decisions
+    - Provide structured feedback for model improvement
+    
+    Reward calculation factors:
+    - Resource utilization efficiency (40%)
+    - SLA compliance and response times (40%)  
+    - System stability and scaling smoothness (20%)
+    
+    Use objective metrics and avoid bias in reward calculations.
+
+---
+# Consumer Workload Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consumer-workload-config
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: consumer-workload
+data:
+  app-config.yaml: |
+    # Consumer Workload Application Configuration
+    app:
+      name: "nimbusguard-consumer-workload"
+      version: "0.1.0"
+      port: 8080
+      
+    # Workload Generation
+    workload:
+      cpu:
+        default_intensity: 50
+        max_intensity: 100
+        default_duration: 300
+      memory:
+        default_intensity: 50
+        max_intensity: 90
+        default_duration: 300
+        
+    # Kafka Consumer Configuration
+    kafka:
+      bootstrap_servers: "kafka:9092"
+      topics:
+        scaling_events: "nimbusguard.scaling.events"
+        metrics: "nimbusguard.metrics"
+      consumer_group: "nimbusguard-consumer-workload"
+      auto_offset_reset: "latest"
+      
+    # Metrics and Observability
+    metrics:
+      enabled: true
+      endpoint: "/metrics"
+      collection_interval: 15
+      
+    # Health Checks
+    health:
+      readiness_endpoint: "/ready"
+      liveness_endpoint: "/health"
+      startup_probe_delay: 30
+
+---
+# Load Generator Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: load-generator-config
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: load-generator
+data:
+  load-patterns.yaml: |
+    # Load Generation Patterns
+    patterns:
+      baseline:
+        type: "constant"
+        requests_per_second: 10
+        duration: 300
+        
+      spike:
+        type: "spike"
+        baseline_rps: 10
+        spike_rps: 100
+        spike_duration: 60
+        total_duration: 300
+        
+      gradual_increase:
+        type: "linear"
+        start_rps: 5
+        end_rps: 50
+        duration: 600
+        
+      stress_test:
+        type: "exponential"
+        start_rps: 1
+        multiplier: 2
+        interval: 30
+        max_rps: 200
+        duration: 900
+        
+    # Kafka Event Patterns
+    kafka_events:
+      high_cpu:
+        event_type: "high_cpu_usage"
+        threshold: 80
+        service: "consumer-workload"
+        
+      memory_pressure:
+        event_type: "memory_pressure"
+        threshold: 85
+        service: "consumer-workload"
+        
+      request_surge:
+        event_type: "request_rate_surge"
+        threshold: 100
+        service: "consumer-workload"
+        
+    # Target Configuration
+    targets:
+      consumer_workload:
+        url: "http://consumer-workload:8080"
+        health_check: "/health"
+      kafka:
+        bootstrap_servers: "kafka:9092"
+        topic: "nimbusguard.scaling.events" 

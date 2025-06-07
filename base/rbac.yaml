@@ -1,0 +1,150 @@
+---
+# Service Account for LangGraph Operator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: langgraph-operator
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+
+---
+# ClusterRole for Operator Permissions  
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: langgraph-operator
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+rules:
+# Core Kubernetes resources
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "configmaps", "secrets", "events"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# HPA and VPA resources
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["autoscaling.k8s.io"]
+  resources: ["verticalpodautoscalers"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# KEDA resources
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "scaledjobs", "triggerauthentications", "clustertriggerauthentications"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Custom NimbusGuard resources
+- apiGroups: ["nimbusguard.io"]
+  resources: ["scalingpolicies", "aimodels"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["nimbusguard.io"]
+  resources: ["scalingpolicies/status", "aimodels/status"]
+  verbs: ["get", "update", "patch"]
+
+# Metrics and monitoring
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["custom.metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+
+# Events for operator status
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+# Node access for resource monitoring
+- apiGroups: [""]
+  resources: ["nodes", "nodes/stats", "nodes/metrics"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for Operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: langgraph-operator
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: langgraph-operator
+subjects:
+- kind: ServiceAccount
+  name: langgraph-operator
+  namespace: nimbusguard
+
+---
+# Role for namespace-specific operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: langgraph-operator-local
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+---
+# RoleBinding for namespace operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: langgraph-operator-local
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: langgraph-operator-local
+subjects:
+- kind: ServiceAccount
+  name: langgraph-operator
+  namespace: nimbusguard
+
+---
+# Service Account for Consumer Workload
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: consumer-workload
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: consumer-workload
+
+---
+# Service Account for Load Generator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: load-generator
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: load-generator 
