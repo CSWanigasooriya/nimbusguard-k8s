@@ -1,0 +1,54 @@
+---
+apiVersion: nimbusguard.io/v1
+kind: ScalingPolicy
+metadata:
+  name: consumer-workload-ai-scaling
+  namespace: default
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: scaling-policy
+    app.kubernetes.io/managed-by: nimbusguard-operator
+spec:
+  # Target deployment to scale
+  target:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: consumer-workload
+    namespace: default
+  
+  # Scaling configuration
+  scaling:
+    minReplicas: 1
+    maxReplicas: 10
+    cooldownPeriod: 300  # 5 minutes
+    scaleUpFactor: 2.0   # Double replicas when scaling up
+    scaleDownFactor: 0.5 # Halve replicas when scaling down
+  
+  # AI Configuration
+  aiConfig:
+    qLearning:
+      learningRate: 0.1
+      discountFactor: 0.95
+      epsilonStart: 1.0
+      epsilonEnd: 0.01
+      epsilonDecay: 0.995
+    lstm:
+      enabled: false
+      predictionWindow: 5
+      sequenceLength: 60
+  
+  # Metrics thresholds
+  metrics:
+    cpu:
+      targetUtilization: 70
+      threshold: 80
+    memory:
+      targetUtilization: 80
+      threshold: 85
+    custom:
+      - name: "request_rate"
+        query: "rate(http_requests_total[5m])"
+        threshold: 100.0
+      - name: "error_rate"
+        query: "rate(http_errors_total[5m]) / rate(http_requests_total[5m])"
+        threshold: 0.05 

@@ -107,7 +107,7 @@ data:
     # LangGraph Operator specific
     - job_name: 'langgraph-operator'
       static_configs:
-      - targets: ['langgraph-operator:8082']
+      - targets: ['langgraph-operator:8080']
       metrics_path: '/metrics'
       scrape_interval: 15s
       
@@ -219,7 +219,7 @@ spec:
       serviceAccountName: prometheus
       containers:
       - name: prometheus
-        image: prom/prometheus:v2.45.0
+        image: prom/prometheus:v2.47.2
         args:
         - '--config.file=/etc/prometheus/prometheus.yml'
         - '--storage.tsdb.path=/prometheus/'

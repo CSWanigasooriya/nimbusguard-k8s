@@ -20,10 +20,16 @@ resources:
 - consumer-workload.yaml
 - load-generator.yaml
 - langgraph-operator.yaml
+- scaling-policy.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: nimbusguard
-  app.kubernetes.io/managed-by: kustomize
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/part-of: nimbusguard
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/version: 0.1.0
+    app.kubernetes.io/component: base
 
 images:
 - name: nimbusguard/consumer-workload

@@ -14,10 +14,12 @@ resources:
 - components/observability
 - components/keda
 
-commonLabels:
-  app.kubernetes.io/part-of: nimbusguard
-  app.kubernetes.io/version: "0.1.0"
-  app.kubernetes.io/managed-by: kustomize
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/part-of: nimbusguard
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: kustomize
 
 namespace: nimbusguard
 
@@ -30,13 +32,12 @@ images:
 - name: nimbusguard/langgraph-operator
   newTag: latest
 
-# Configuration patches
-patchesStrategicMerge:
-- patches/production-resources.yaml
+# Configuration patches (if needed)
+# patchesStrategicMerge:
+# - patches/production-resources.yaml
 
 configMapGenerator:
 - name: deployment-info
   literals:
-  - deployment.timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   - deployment.version="0.1.0"
   - deployment.environment="kubernetes" 
