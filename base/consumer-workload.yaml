@@ -1,173 +1,78 @@
----
-# Consumer Workload Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: consumer-workload
-  namespace: nimbusguard
-  labels:
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/component: consumer-workload
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-    prometheus.io/path: "/metrics"
-spec:
-  type: ClusterIP
-  ports:
-  - port: 8080
-    targetPort: 8080
-    protocol: TCP
-    name: http
-  selector:
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/component: consumer-workload
-
----
-# Consumer Workload Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: consumer-workload
-  namespace: nimbusguard
   labels:
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/component: consumer-workload
+    app: consumer-workload
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: nimbusguard
-      app.kubernetes.io/component: consumer-workload
+      app: consumer-workload
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: nimbusguard
-        app.kubernetes.io/component: consumer-workload
+        app: consumer-workload
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: consumer-workload
       containers:
-      - name: consumer-workload
+      - name: consumer
         image: nimbusguard/consumer-workload:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
-          name: http
-          protocol: TCP
+          name: metrics
         env:
-        - name: APP_PORT
-          value: "8080"
-        - name: APP_HOST
-          value: "0.0.0.0"
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka:9092"
-        - name: KAFKA_TOPIC_SCALING_EVENTS
-          value: "nimbusguard.scaling.events"
-        - name: KAFKA_TOPIC_METRICS
-          value: "nimbusguard.metrics"
-        - name: KAFKA_CONSUMER_GROUP
-          value: "nimbusguard-consumer-workload"
         - name: LOG_LEVEL
           value: "INFO"
-        - name: METRICS_ENABLED
-          value: "true"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "http://tempo:4317"
         - name: OTEL_SERVICE_NAME
           value: "consumer-workload"
         - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=consumer-workload,service.version=0.1.0"
+          value: "service.name=consumer-workload,service.version=1.0.0"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: KAFKA_TOPIC
+          value: "workload-events"
         resources:
           requests:
             memory: "128Mi"
             cpu: "100m"
           limits:
-            memory: "512Mi"
-            cpu: "1000m"
+            memory: "256Mi"
+            cpu: "200m"
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        startupProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 30
-        volumeMounts:
-        - name: config
-          mountPath: /app/config
-          readOnly: true
-      volumes:
-      - name: config
-        configMap:
-          name: consumer-workload-config
-      initContainers:
-      - name: wait-for-kafka
-        image: busybox:1.35
-        command: ['sh', '-c', 'until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;']
-
 ---
-# HorizontalPodAutoscaler for Consumer Workload
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+apiVersion: v1
+kind: Service
 metadata:
-  name: consumer-workload-hpa
-  namespace: nimbusguard
+  name: consumer-workload
   labels:
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/component: consumer-workload
+    app: consumer-workload
 spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: consumer-workload
-  minReplicas: 1
-  maxReplicas: 20
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-      - type: Percent
-        value: 50
-        periodSeconds: 60
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 15
-      - type: Pods
-        value: 2
-        periodSeconds: 60 
+  selector:
+    app: consumer-workload
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

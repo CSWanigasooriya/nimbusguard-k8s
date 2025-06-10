@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nimbusguard-operator
+  labels:
+    app: nimbusguard-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nimbusguard-operator
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["nimbusguard.io"]
+  resources: ["intelligentscaling"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nimbusguard-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nimbusguard-operator
+subjects:
+- kind: ServiceAccount
+  name: nimbusguard-operator
+  namespace: nimbusguard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: operator-config
+  labels:
+    app: nimbusguard-operator
+data:
+  prometheus_url: "http://prometheus.monitoring.svc.cluster.local:9090"
+  tempo_endpoint: "http://tempo.monitoring.svc.cluster.local:4317"
+  log_level: "INFO"
+  evaluation_interval: "30"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nimbusguard-operator
+  labels:
+    app: nimbusguard-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nimbusguard-operator
+  template:
+    metadata:
+      labels:
+        app: nimbusguard-operator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: nimbusguard-operator
+      containers:
+      - name: operator
+        image: nimbusguard/nimbusguard-operator:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8090
+          name: fastapi
+        - containerPort: 8000
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: operator-secrets
+              key: openai_api_key
+              optional: true
+        - name: PROMETHEUS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: operator-config
+              key: prometheus_url
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: operator-config
+              key: tempo_endpoint
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: operator-config
+              key: log_level
+        - name: EVALUATION_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: operator-config
+              key: evaluation_interval
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nimbusguard-operator
+  labels:
+    app: nimbusguard-operator
+spec:
+  selector:
+    app: nimbusguard-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: fastapi
+    port: 8090
+    targetPort: 8090
+    protocol: TCP
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

@@ -1,42 +1,67 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-metadata:
-  name: nimbusguard-base
-  annotations:
-    config.kubernetes.io/local-config: "true"
-
 resources:
-# Core Infrastructure
-- namespace.yaml
-- crds.yaml
-- rbac.yaml
-- configmaps.yaml
-
-# Event Streaming
-- kafka.yaml
-
-# Core Applications
+- crd.yaml
+- operator.yaml
 - consumer-workload.yaml
 - load-generator.yaml
-- langgraph-operator.yaml
-- scaling-policy.yaml
+- kafka.yaml
+- storage-class.yaml
 
-labels:
-- includeSelectors: true
-  pairs:
-    app.kubernetes.io/part-of: nimbusguard
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/version: 0.1.0
-    app.kubernetes.io/component: base
+namespace: nimbusguard
 
-images:
-- name: nimbusguard/consumer-workload
-  newTag: latest
-- name: nimbusguard/load-generator
-  newTag: latest
-- name: nimbusguard/langgraph-operator
-  newTag: latest
+commonLabels:
+  app.kubernetes.io/name: nimbusguard
+  app.kubernetes.io/part-of: nimbusguard
+  app.kubernetes.io/component: operator
 
-namespace: nimbusguard 
+patches:
+- target:
+    kind: Deployment
+    name: nimbusguard-operator
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "128Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "100m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "512Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "500m"
+- target:
+    kind: Deployment
+    name: consumer-workload
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "128Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "100m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "256Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "200m"
+- target:
+    kind: Deployment
+    name: load-generator
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "64Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "50m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "128Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "100m"
