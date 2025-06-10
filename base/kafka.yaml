@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      hostname: kafka-0
+      subdomain: kafka
+      initContainers:
+      - name: kafka-init
+        image: confluentinc/cp-kafka:7.5.0
+        command:
+          - bash
+          - -c
+          - |
+            kafka-storage format -t K7DeG7KMS1ucKSgxDZfoAQ -c /etc/kafka/kraft/server.properties --ignore-formatted
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.5.0
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 9093
+          name: controller
+        - containerPort: 29092
+          name: kafka-external
+        env:
+        - name: CLUSTER_ID
+          value: K7DeG7KMS1ucKSgxDZfoAQ
+        - name: KAFKA_KRAFT_MODE
+          value: "true"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@kafka-0.kafka.nimbusguard.svc.cluster.local:9093"
+        - name: KAFKA_LISTENERS
+          value: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: PLAINTEXT://kafka-0.kafka.nimbusguard.svc.cluster.local:9092,PLAINTEXT_HOST://kafka-0.kafka.nimbusguard.svc.cluster.local:29092
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: PLAINTEXT
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: CONTROLLER
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_LOG_DIRS
+          value: /tmp/kraft-combined-logs
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka
+  - port: 29092
+    targetPort: 29092
+    name: kafka-external
+  selector:
+    app: kafka
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
+  clusterIP: None
