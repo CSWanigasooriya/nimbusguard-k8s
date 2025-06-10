@@ -46,8 +46,8 @@ metadata:
   labels:
     app: nimbusguard-operator
 data:
-  prometheus_url: "http://prometheus-server.monitoring.svc.cluster.local:9090"
-  tempo_endpoint: "http://tempo:4317"
+  prometheus_url: "http://prometheus.monitoring.svc.cluster.local:9090"
+  tempo_endpoint: "http://tempo.monitoring.svc.cluster.local:4317"
   log_level: "INFO"
   evaluation_interval: "30"
 ---
@@ -79,14 +79,14 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        - containerPort: 8081
+        - containerPort: 8090
           name: fastapi
         - containerPort: 8000
           name: metrics
         livenessProbe:
           httpGet:
             path: /health
-            port: 8081
+            port: 8090
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -94,7 +94,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /ready
-            port: 8081
+            port: 8090
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3
@@ -156,8 +156,8 @@ spec:
     targetPort: 8080
     protocol: TCP
   - name: fastapi
-    port: 8081
-    targetPort: 8081
+    port: 8090
+    targetPort: 8090
     protocol: TCP
   - name: metrics
     port: 8000
