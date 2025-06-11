@@ -78,3 +78,24 @@ spec:
     targetPort: 8080
     protocol: TCP
   type: ClusterIP
+---
+apiVersion: nimbusguard.io/v1alpha1
+kind: IntelligentScaling
+metadata:
+  name: consumer-scaler
+  namespace: nimbusguard
+spec:
+  namespace: nimbusguard
+  target_labels:
+    app: consumer-workload
+  metrics_config:
+    prometheus_url: "http://prometheus.monitoring.svc:9090"
+    evaluation_interval: 30
+    decision_window: "5m"
+    metrics:
+      - query: nimbusguard_cpu_usage_percent
+        threshold: 50
+        condition: gt
+      - query: nimbusguard_memory_usage_percent
+        threshold: 70
+        condition: gt
