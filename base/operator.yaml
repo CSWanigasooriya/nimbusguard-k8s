@@ -145,6 +145,9 @@ rules:
 - apiGroups: [""]
   resources: ["pods", "services", "configmaps"]
   verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch", "update"]
 ---
 # Operator Cluster Role Binding
 apiVersion: rbac.authorization.k8s.io/v1
