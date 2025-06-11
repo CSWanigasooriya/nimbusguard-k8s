@@ -2,12 +2,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- crd.yaml
 - operator.yaml
 - consumer-workload.yaml
 - load-generator.yaml
 - kafka.yaml
-- storage-class.yaml
+- keda-scaler.yaml
 
 namespace: nimbusguard
 
@@ -32,36 +31,4 @@ patches:
       value: "512Mi"
     - op: replace
       path: /spec/template/spec/containers/0/resources/limits/cpu
-      value: "500m"
-- target:
-    kind: Deployment
-    name: consumer-workload
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/requests/memory
-      value: "128Mi"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/requests/cpu
-      value: "100m"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/limits/memory
-      value: "256Mi"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/limits/cpu
-      value: "200m"
-- target:
-    kind: Deployment
-    name: load-generator
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/requests/memory
-      value: "64Mi"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/requests/cpu
-      value: "50m"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/limits/memory
-      value: "128Mi"
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/limits/cpu
-      value: "100m"
+      value: "500m" 

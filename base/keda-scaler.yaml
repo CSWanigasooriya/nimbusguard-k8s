@@ -1,0 +1,80 @@
+---
+# KEDA Kafka Trigger Authentication
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: kafka-trigger-auth
+  namespace: nimbusguard
+spec:
+  secretTargetRef: []
+---
+# Network Policy for KEDA Metrics Server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keda-metrics-network-policy
+  namespace: keda
+spec:
+  podSelector:
+    matchLabels:
+      app: keda-operator-metrics-apiserver
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nimbusguard
+    ports:
+    - protocol: TCP
+      port: 6443
+---
+# Network Policy for KEDA Operator
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keda-operator-network-policy
+  namespace: keda
+spec:
+  podSelector:
+    matchLabels:
+      app: keda-operator
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nimbusguard
+    ports:
+    - protocol: TCP
+      port: 9666
+---
+# KEDA ScaledObject
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-workload-scaler
+  namespace: nimbusguard
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
+spec:
+  scaleTargetRef:
+    name: consumer-workload
+    kind: Deployment
+  pollingInterval: 10
+  cooldownPeriod: 120
+  # idleReplicaCount: 1
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+  - type: kafka
+    metadata:
+      bootstrapServers: kafka.nimbusguard.svc.cluster.local:9092
+      consumerGroup: background-consumer
+      topic: scaling-events
+      lagThreshold: "5"
+      activationLagThreshold: "2"
+      offsetResetPolicy: "earliest"
+      allowIdleConsumers: "true"
+      scaleToZeroOnInvalidOffset: "false"
+    authenticationRef:
+      name: kafka-trigger-auth
