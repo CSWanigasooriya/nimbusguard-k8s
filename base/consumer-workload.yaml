@@ -37,7 +37,9 @@ spec:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:9092"
         - name: KAFKA_TOPIC
-          value: "workload-events"
+          value: "scaling-events"
+        - name: KAFKA_CONSUMER_GROUP
+          value: "background-consumer"
         resources:
           requests:
             memory: "128Mi"
