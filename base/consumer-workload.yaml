@@ -85,17 +85,25 @@ metadata:
   name: consumer-scaler
   namespace: nimbusguard
 spec:
+  # Target configuration
   namespace: nimbusguard
   target_labels:
     app: consumer-workload
-  metrics_config:
-    prometheus_url: "http://prometheus.monitoring.svc:9090"
-    evaluation_interval: 30
-    decision_window: "5m"
-    metrics:
-      - query: nimbusguard_cpu_usage_percent
-        threshold: 50
-        condition: gt
-      - query: nimbusguard_memory_usage_percent
-        threshold: 70
-        condition: gt
+  min_replicas: 1
+  max_replicas: 10
+  
+  # Metrics configuration (flattened)
+  prometheus_url: "http://prometheus.monitoring.svc.cluster.local:9090"
+  evaluation_interval: 30
+  decision_window: "5m"
+  trace_decisions: true
+  metrics:
+    - query: "rate(http_requests_total{job=\"consumer-workload\"}[5m])"
+      threshold: 10
+      condition: "gt"
+    - query: "avg(rate(cpu_usage_seconds_total{job=\"consumer-workload\"}[5m])) * 100"
+      threshold: 70
+      condition: "gt"
+  
+  # Decision engine
+  decision_engine: "basic"

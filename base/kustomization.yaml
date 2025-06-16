@@ -2,18 +2,21 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- operator.yaml
-- consumer-workload.yaml
+- operator.yaml  # Operator RBAC and deployment
+- consumer-workload.yaml  # Contains consumer-scaler IntelligentScaling
 - load-generator.yaml
 - kafka.yaml
 - keda-scaler.yaml
 
 namespace: nimbusguard
 
-commonLabels:
-  app.kubernetes.io/name: nimbusguard
-  app.kubernetes.io/part-of: nimbusguard
-  app.kubernetes.io/component: operator
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      app.kubernetes.io/name: nimbusguard
+      app.kubernetes.io/part-of: nimbusguard
+      app.kubernetes.io/component: operator
 
 patches:
 - target:
