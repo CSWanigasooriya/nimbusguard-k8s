@@ -34,11 +34,13 @@ Before deploying, you need to set your OpenAI API key. You can do this in two wa
 #### Option 1: Using kubectl
 
 First, base64 encode your API key:
+
 ```bash
 echo -n "your-api-key" | base64
 ```
 
 Then create the secret using the encoded value:
+
 ```bash
 # For development
 kubectl create secret generic operator-secrets \
@@ -54,11 +56,14 @@ kubectl create secret generic operator-secrets \
 #### Option 2: Using kustomize
 
 1. First, base64 encode your API key:
+
 ```bash
 echo -n "your-api-key" | base64
 ```
 
-2. Edit the `kustomization.yaml` file in the appropriate overlay directory and replace the empty API key with the base64 encoded value:
+2. Edit the `kustomization.yaml` file in the appropriate overlay directory and replace the empty API key with the base64
+   encoded value:
+
 ```yaml
 secretGenerator:
 - name: operator-secrets
@@ -97,16 +102,19 @@ The operator exposes metrics on port 8080. You can access them through the `nimb
 ## Troubleshooting
 
 1. Check operator logs:
+
 ```bash
 kubectl logs -n nimbusguard-dev deployment/nimbusguard-operator
 ```
 
 2. Check operator status:
+
 ```bash
 kubectl get pods -n nimbusguard-dev -l app=nimbusguard-operator
 ```
 
 3. Check CRD status:
+
 ```bash
 kubectl get crd intelligentscaling.nimbusguard.io
 ```

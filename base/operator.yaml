@@ -12,110 +12,110 @@ spec:
     plural: intelligentscaling
     singular: intelligentscaling
     shortNames:
-    - isc
+      - isc
   scope: Namespaced
   versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            required:
-            - namespace
-            - target_labels
-            - metrics_config
-            properties:
-              namespace:
-                type: string
-                description: "Namespace where the target workload is deployed"
-              target_labels:
-                type: object
-                description: "Labels to identify the target workload"
-                additionalProperties:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - namespace
+                - target_labels
+                - metrics_config
+              properties:
+                namespace:
                   type: string
-              metrics_config:
-                type: object
-                required:
-                - prometheus_url
-                - evaluation_interval
-                - decision_window
-                - metrics
-                properties:
-                  prometheus_url:
-                    type: string
-                    description: "URL of the Prometheus server"
-                  evaluation_interval:
-                    type: integer
-                    description: "Interval in seconds between evaluations"
-                    minimum: 1
-                  decision_window:
-                    type: string
-                    description: "Time window for decision making (e.g., '5m', '1h')"
-                  trace_decisions:
-                    type: boolean
-                    description: "Whether to trace decision-making process"
-                  metrics:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - query
-                      - threshold
-                      - condition
-                      properties:
-                        query:
-                          type: string
-                          description: "Prometheus query to evaluate"
-                        threshold:
-                          type: number
-                          description: "Threshold value for the metric"
-                        condition:
-                          type: string
-                          description: "Condition to evaluate (gt, lt, eq)"
-                          enum: [gt, lt, eq]
-              decision_engine:
-                type: string
-                description: "Decision engine to use (langgraph, basic)"
-                enum: [langgraph, basic]
-                default: "basic"
-          status:
-            type: object
-            properties:
-              last_evaluation:
-                type: string
-                format: date-time
-                description: "Timestamp of last evaluation"
-              current_replicas:
-                type: integer
-                description: "Current number of replicas"
-              target_replicas:
-                type: integer
-                description: "Target number of replicas"
-              decision_reason:
-                type: string
-                description: "Reason for the last scaling decision"
-              conditions:
-                type: array
-                items:
+                  description: "Namespace where the target workload is deployed"
+                target_labels:
                   type: object
+                  description: "Labels to identify the target workload"
+                  additionalProperties:
+                    type: string
+                metrics_config:
+                  type: object
+                  required:
+                    - prometheus_url
+                    - evaluation_interval
+                    - decision_window
+                    - metrics
                   properties:
-                    type:
+                    prometheus_url:
                       type: string
-                    status:
+                      description: "URL of the Prometheus server"
+                    evaluation_interval:
+                      type: integer
+                      description: "Interval in seconds between evaluations"
+                      minimum: 1
+                    decision_window:
                       type: string
-                    lastTransitionTime:
-                      type: string
-                      format: date-time
-                    reason:
-                      type: string
-                    message:
-                      type: string
-    subresources:
-      status: {}
+                      description: "Time window for decision making (e.g., '5m', '1h')"
+                    trace_decisions:
+                      type: boolean
+                      description: "Whether to trace decision-making process"
+                    metrics:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - query
+                          - threshold
+                          - condition
+                        properties:
+                          query:
+                            type: string
+                            description: "Prometheus query to evaluate"
+                          threshold:
+                            type: number
+                            description: "Threshold value for the metric"
+                          condition:
+                            type: string
+                            description: "Condition to evaluate (gt, lt, eq)"
+                            enum: [ gt, lt, eq ]
+                decision_engine:
+                  type: string
+                  description: "Decision engine to use (langgraph, basic)"
+                  enum: [ langgraph, basic ]
+                  default: "basic"
+            status:
+              type: object
+              properties:
+                last_evaluation:
+                  type: string
+                  format: date-time
+                  description: "Timestamp of last evaluation"
+                current_replicas:
+                  type: integer
+                  description: "Current number of replicas"
+                target_replicas:
+                  type: integer
+                  description: "Target number of replicas"
+                decision_reason:
+                  type: string
+                  description: "Reason for the last scaling decision"
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+      subresources:
+        status: { }
 ---
 # Operator Service Account
 apiVersion: v1
@@ -130,24 +130,24 @@ kind: ClusterRole
 metadata:
   name: nimbusguard-operator
 rules:
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["nimbusguard.io"]
-  resources: ["intelligentscaling"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["nimbusguard.io"]
-  resources: ["intelligentscaling/status"]
-  verbs: ["get", "update", "patch"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "statefulsets"]
-  verbs: ["get", "list", "watch", "update", "patch"]
-- apiGroups: [""]
-  resources: ["pods", "services", "configmaps"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["events"]
-  verbs: ["create", "patch", "update"]
+  - apiGroups: [ "apiextensions.k8s.io" ]
+    resources: [ "customresourcedefinitions" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "nimbusguard.io" ]
+    resources: [ "intelligentscaling" ]
+    verbs: [ "get", "list", "watch", "create", "update", "patch", "delete" ]
+  - apiGroups: [ "nimbusguard.io" ]
+    resources: [ "intelligentscaling/status" ]
+    verbs: [ "get", "update", "patch" ]
+  - apiGroups: [ "apps" ]
+    resources: [ "deployments", "statefulsets" ]
+    verbs: [ "get", "list", "watch", "update", "patch" ]
+  - apiGroups: [ "" ]
+    resources: [ "pods", "services", "configmaps" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "create", "patch", "update" ]
 ---
 # Operator Cluster Role Binding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -155,9 +155,9 @@ kind: ClusterRoleBinding
 metadata:
   name: nimbusguard-operator
 subjects:
-- kind: ServiceAccount
-  name: nimbusguard-operator
-  namespace: nimbusguard
+  - kind: ServiceAccount
+    name: nimbusguard-operator
+    namespace: nimbusguard
 roleRef:
   kind: ClusterRole
   name: nimbusguard-operator
@@ -191,36 +191,36 @@ spec:
     spec:
       serviceAccountName: nimbusguard-operator
       containers:
-      - name: operator
-        image: nimbusguard/nimbusguard-operator:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8090
-          name: metrics
-        env:
-        - name: LOG_LEVEL
-          valueFrom:
-            configMapKeyRef:
-              name: operator-config
-              key: LOG_LEVEL
-        - name: METRICS_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: operator-config
-              key: METRICS_PORT
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: operator-secrets
-              key: openai_api_key
-              optional: true
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
+        - name: operator
+          image: nimbusguard/nimbusguard-operator:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+              name: metrics
+          env:
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: operator-config
+                  key: LOG_LEVEL
+            - name: METRICS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: operator-config
+                  key: METRICS_PORT
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: operator-secrets
+                  key: openai_api_key
+                  optional: true
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
 ---
 # Operator Service
 apiVersion: v1
@@ -232,6 +232,6 @@ spec:
   selector:
     app: nimbusguard-operator
   ports:
-  - port: 8090
-    targetPort: 8090
-    name: metrics
+    - port: 8090
+      targetPort: 8090
+      name: metrics

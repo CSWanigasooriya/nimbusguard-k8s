@@ -58,51 +58,51 @@ spec:
         app.kubernetes.io/part-of: nimbusguard-monitoring
     spec:
       containers:
-      - name: tempo
-        image: grafana/tempo:2.2.0
-        args:
-          - '-config.file=/etc/tempo/tempo.yml'
-        ports:
-        - containerPort: 3200
-          name: http
-        - containerPort: 4317
-          name: otlp-grpc
-        - containerPort: 4318
-          name: otlp-http
-        - containerPort: 14268
-          name: jaeger-http
-        - containerPort: 14250
-          name: jaeger-grpc
-        - containerPort: 9411
-          name: zipkin
-        volumeMounts:
-        - name: tempo-config
-          mountPath: /etc/tempo
-        - name: tempo-storage
-          mountPath: /tmp/tempo
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 3200
-          initialDelaySeconds: 45
-        livenessProbe:
-          httpGet:
-            path: /ready
-            port: 3200
-          initialDelaySeconds: 45
+        - name: tempo
+          image: grafana/tempo:2.2.0
+          args:
+            - '-config.file=/etc/tempo/tempo.yml'
+          ports:
+            - containerPort: 3200
+              name: http
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+            - containerPort: 14268
+              name: jaeger-http
+            - containerPort: 14250
+              name: jaeger-grpc
+            - containerPort: 9411
+              name: zipkin
+          volumeMounts:
+            - name: tempo-config
+              mountPath: /etc/tempo
+            - name: tempo-storage
+              mountPath: /tmp/tempo
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 45
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 45
       volumes:
-      - name: tempo-config
-        configMap:
-          name: tempo-config
-      - name: tempo-storage
-        emptyDir: {}
+        - name: tempo-config
+          configMap:
+            name: tempo-config
+        - name: tempo-storage
+          emptyDir: { }
 ---
 apiVersion: v1
 kind: Service
@@ -119,22 +119,22 @@ spec:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/part-of: nimbusguard-monitoring
   ports:
-  - name: http
-    port: 3200
-    targetPort: 3200
-  - name: otlp-grpc
-    port: 4317
-    targetPort: 4317
-  - name: otlp-http
-    port: 4318
-    targetPort: 4318
-  - name: jaeger-http
-    port: 14268
-    targetPort: 14268
-  - name: jaeger-grpc
-    port: 14250
-    targetPort: 14250
-  - name: zipkin
-    port: 9411
-    targetPort: 9411
+    - name: http
+      port: 3200
+      targetPort: 3200
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: jaeger-http
+      port: 14268
+      targetPort: 14268
+    - name: jaeger-grpc
+      port: 14250
+      targetPort: 14250
+    - name: zipkin
+      port: 9411
+      targetPort: 9411
   type: ClusterIP
