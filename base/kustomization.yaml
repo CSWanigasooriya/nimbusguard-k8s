@@ -3,11 +3,6 @@ kind: Kustomization
 
 resources:
   - crd.yaml
-  - operator.yaml
-  - consumer-workload.yaml
-  - load-generator.yaml
-  - kafka.yaml
-  - keda-scaler.yaml
 
 namespace: nimbusguard
 
