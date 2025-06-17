@@ -9,6 +9,7 @@ resources:
 
 namespace: monitoring
 
-commonLabels:
-  app.kubernetes.io/part-of: nimbusguard-monitoring
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: nimbusguard-monitoring
+      app.kubernetes.io/managed-by: kustomize
