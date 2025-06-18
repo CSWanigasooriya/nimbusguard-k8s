@@ -14,56 +14,75 @@ data:
       - name: Tempo
         orgId: 1
     datasources:
+      # --- Prometheus Datasource ---
       - name: Prometheus
         type: prometheus
         access: proxy
         orgId: 1
-        url: http://prometheus:9090
-        basicAuth: false
+        url: http://prometheus.monitoring.svc.cluster.local:9090
         isDefault: true
-        version: 1
         editable: false
+        uid: prometheus_nimbusguard
         jsonData:
           httpMethod: GET
+
+      # --- Loki Datasource ---
       - name: Loki
         type: loki
         access: proxy
         orgId: 1
-        url: http://loki:3100
-        basicAuth: false
-        isDefault: false
-        version: 1
+        url: http://loki.monitoring.svc.cluster.local:3100
         editable: false
+        uid: loki_nimbusguard
         jsonData:
           derivedFields:
-            - datasourceUid: tempo
+            - datasourceUid: tempo_nimbusguard
               matcherRegex: "traceID=(\\w+)"
               name: TraceID
               url: "$${__value.raw}"
+            - datasourceUid: tempo_nimbusguard
+              matcherRegex: "trace_id=(\\w+)"
+              name: TraceID
+              url: "$${__value.raw}"
+
+      # --- Tempo Datasource ---
       - name: Tempo
         type: tempo
         access: proxy
         orgId: 1
-        url: http://tempo:3200
-        basicAuth: false
-        isDefault: false
-        version: 1
+        url: http://tempo.monitoring.svc.cluster.local:3200
         editable: false
+        uid: tempo_nimbusguard
         jsonData:
           httpMethod: GET
           serviceMap:
-            datasourceUid: prometheus
-          search:
-            hide: false
+            datasourceUid: prometheus_nimbusguard
           nodeGraph:
             enabled: true
-          traceQuery:
-            timeShiftEnabled: true
-            spanStartTimeShift: 1h
-            spanEndTimeShift: 1h
+          search:
+            hide: false
+          lokiSearch:
+            datasourceUid: loki_nimbusguard
+          tracesToLogs:
+            datasourceUid: loki_nimbusguard
+            tags: ['job', 'instance', 'pod', 'namespace']
+            mappedTags: [
+              {key: 'service.name', value: 'job'},
+              {key: 'k8s.pod.name', value: 'pod'},
+              {key: 'k8s.namespace.name', value: 'namespace'}
+            ]
+            mapTagNamesEnabled: true
+            spanStartTimeShift: '1h'
+            spanEndTimeShift: '1h'
+          tracesToMetrics:
+            datasourceUid: prometheus_nimbusguard
+            tags: ['job', 'instance']
+            queries:
+              - name: 'Sample query'
+                query: 'rate(tempo_request_duration_seconds_sum[5m])'
           spanBar:
-            type: Tag
-            tag: http.path
+            type: 'Tag'
+            tag: 'http.path'
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -80,6 +99,7 @@ data:
     
     [log]
     mode = console
+    level = info
     
     [paths]
     data = /var/lib/grafana/
@@ -91,6 +111,9 @@ data:
     protocol = http
     http_port = 3000
     domain = localhost
+    
+    [feature_toggles]
+    enable = traceqlEditor,correlations,tempoSearch,tempoServiceGraph
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -115,7 +138,7 @@ spec:
           - 0
       containers:
         - name: grafana
-          image: grafana/grafana:10.1.0
+          image: grafana/grafana:12.0.2
           ports:
             - containerPort: 3000
               name: http-grafana
@@ -159,8 +182,8 @@ spec:
               value: admin
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: admin
-            - name: GF_INSTALL_PLUGINS
-              value: grafana-clock-panel,grafana-simple-json-datasource
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: traceqlEditor,correlations,tempoSearch,tempoServiceGraph
       volumes:
         - name: grafana-pv
           emptyDir: { }

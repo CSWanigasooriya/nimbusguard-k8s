@@ -7,18 +7,16 @@ data:
   tempo.yml: |
     server:
       http_listen_port: 3200
+      log_level: info
 
     distributor:
       receivers:
         otlp:
           protocols:
             grpc:
+              endpoint: 0.0.0.0:4317
             http:
-        jaeger:
-          protocols:
-            thrift_http:
-            grpc:
-        zipkin:
+              endpoint: 0.0.0.0:4318
 
     ingester:
       trace_idle_period: 10s
@@ -35,6 +33,46 @@ data:
           path: /tmp/tempo/wal
         local:
           path: /tmp/tempo/blocks
+          
+    # Enable metrics
+    metrics_generator:
+      registry:
+        external_labels:
+          source: tempo
+          cluster: nimbusguard
+      storage:
+        path: /tmp/tempo/generator/wal
+        remote_write:
+          - url: http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+            send_exemplars: true
+      # Enable service graph metrics
+      processor:
+        service_graphs:
+          dimensions:
+            - http.method
+            - http.target
+            - http.status_code
+            - service.version
+          histogram_buckets: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8]
+          max_items: 10000
+          wait: 10s
+          workers: 10
+        span_metrics:
+          dimensions:
+            - http.method
+            - http.target
+            - http.status_code
+            - service.version
+          histogram_buckets: [0.002, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0]
+          enable_target_info: true
+            
+    # Query frontend for better performance
+    query_frontend:
+      search:
+        duration_slo: 5s
+        throughput_bytes_slo: 1.073741824e+09
+      trace_by_id:
+        duration_slo: 5s
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -48,18 +86,18 @@ spec:
   selector:
     matchLabels:
       app: tempo
-      app.kubernetes.io/managed-by: kustomize
-      app.kubernetes.io/part-of: nimbusguard-monitoring
   template:
     metadata:
       labels:
         app: tempo
-        app.kubernetes.io/managed-by: kustomize
-        app.kubernetes.io/part-of: nimbusguard-monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3200"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: tempo
-          image: grafana/tempo:2.2.0
+          image: grafana/tempo:2.7.2
           args:
             - '-config.file=/etc/tempo/tempo.yml'
           ports:
@@ -69,12 +107,6 @@ spec:
               name: otlp-grpc
             - containerPort: 4318
               name: otlp-http
-            - containerPort: 14268
-              name: jaeger-http
-            - containerPort: 14250
-              name: jaeger-grpc
-            - containerPort: 9411
-              name: zipkin
           volumeMounts:
             - name: tempo-config
               mountPath: /etc/tempo
@@ -111,13 +143,13 @@ metadata:
   namespace: monitoring
   labels:
     app: tempo
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/part-of: nimbusguard-monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3200"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: tempo
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/part-of: nimbusguard-monitoring
   ports:
     - name: http
       port: 3200
@@ -128,13 +160,4 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: 4318
-    - name: jaeger-http
-      port: 14268
-      targetPort: 14268
-    - name: jaeger-grpc
-      port: 14250
-      targetPort: 14250
-    - name: zipkin
-      port: 9411
-      targetPort: 9411
   type: ClusterIP

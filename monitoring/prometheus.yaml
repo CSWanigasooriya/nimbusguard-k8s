@@ -16,24 +16,14 @@ data:
       scrape_interval: 15s
       evaluation_interval: 15s
       external_labels:
-        cluster: 'nimbusguard-dev'
+        cluster: 'nimbusguard'
     
     scrape_configs:
+      # Prometheus only scrapes itself - everything else comes via Alloy remote_write
       - job_name: 'prometheus'
         static_configs:
           - targets: ['localhost:9090']
-    
-      - job_name: 'tempo'
-        static_configs:
-          - targets: ['tempo:3200']
-    
-      - job_name: 'loki'
-        static_configs:
-          - targets: ['loki:3100']
-
-      - job_name: 'alloy'
-        static_configs:
-          - targets: ['alloy:12345'] # Replace 12345 with Alloy's metrics port if you want to monitor Alloy itself
+        metrics_path: '/metrics'
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -51,11 +41,15 @@ spec:
     metadata:
       labels:
         app: prometheus
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus:v2.47.0
+          image: prom/prometheus:v3.4.1
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus/'
@@ -65,6 +59,7 @@ spec:
             - '--web.enable-lifecycle'
             - '--web.enable-admin-api'
             - '--web.enable-remote-write-receiver'
+            - '--log.level=info'
           ports:
             - containerPort: 9090
               name: web
@@ -80,6 +75,18 @@ spec:
             limits:
               cpu: 500m
               memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 15
       volumes:
         - name: prometheus-config
           configMap:
@@ -94,6 +101,10 @@ metadata:
   namespace: monitoring
   labels:
     app: prometheus
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: prometheus
