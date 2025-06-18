@@ -75,10 +75,14 @@ spec:
       containers:
         - name: operator
           image: nimbusguard/nimbusguard-operator:latest
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9080
           imagePullPolicy: Always
           ports:
-            - containerPort: 8090
-              name: metrics
+            - containerPort: 9080
+              name: health
           env:
             - name: LOG_LEVEL
               valueFrom:
@@ -96,6 +100,10 @@ spec:
                   name: operator-secrets
                   key: openai_api_key
                   optional: true
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           resources:
             requests:
               memory: "128Mi"
@@ -114,6 +122,6 @@ spec:
   selector:
     app: nimbusguard-operator
   ports:
-    - port: 8090
-      targetPort: 8090
-      name: metrics
+    - port: 9080
+      targetPort: 9080
+      name: health

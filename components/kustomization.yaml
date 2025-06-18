@@ -10,7 +10,10 @@ resources:
 
 namespace: nimbusguard
 
-commonLabels:
-  app.kubernetes.io/name: nimbusguard
-  app.kubernetes.io/part-of: nimbusguard
-  app.kubernetes.io/component: operator 
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      app.kubernetes.io/name: nimbusguard
+      app.kubernetes.io/part-of: nimbusguard
+      app.kubernetes.io/component: operator 
