@@ -2,11 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - operator.yaml
-  - consumer-workload.yaml
-  - load-generator.yaml
-  - kafka.yaml
-  - keda-scaler.yaml
+  - base/
+  - keda/
+  - operator/
 
 namespace: nimbusguard
 

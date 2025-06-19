@@ -117,6 +117,7 @@ spec:
 
             status:
               type: object
+              x-kubernetes-preserve-unknown-fields: true
               properties:
                 last_evaluation:
                   type: string

@@ -5,6 +5,9 @@ metadata:
   namespace: nimbusguard
   labels:
     app: consumer-workload
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
 spec:
   replicas: 1
   selector:

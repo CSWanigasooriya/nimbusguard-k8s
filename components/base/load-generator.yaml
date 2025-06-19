@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: load-generator
+  namespace: nimbusguard
   labels:
     app: load-generator
 spec:
@@ -62,14 +63,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: load-generator
+  namespace: nimbusguard
   labels:
     app: load-generator
 spec:
   selector:
     app: load-generator
-    app.kubernetes.io/component: operator
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/part-of: nimbusguard
   ports:
     - name: http
       port: 8081
