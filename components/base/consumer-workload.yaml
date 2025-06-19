@@ -166,7 +166,7 @@ spec:
       lookback_minutes: 5
 
   ml_config:
-    training_mode: false
+    training_mode: true
     model_path: "/models/consumer-workload-dqn.pth"
     epsilon_start: 0.1
     confidence_threshold: 0.3
