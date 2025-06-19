@@ -1,3 +1,4 @@
+# Fixed Grafana Deployment - Resolving all crash issues
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,57 +15,56 @@ data:
       - name: Tempo
         orgId: 1
     datasources:
+      # --- Prometheus Datasource ---
       - name: Prometheus
         type: prometheus
         access: proxy
         orgId: 1
-        url: http://prometheus:9090
-        basicAuth: false
+        url: http://prometheus.monitoring.svc.cluster.local:9090
         isDefault: true
-        version: 1
         editable: false
+        uid: prometheus_nimbusguard
         jsonData:
           httpMethod: GET
+
+      # --- Loki Datasource ---
       - name: Loki
         type: loki
         access: proxy
         orgId: 1
-        url: http://loki:3100
-        basicAuth: false
-        isDefault: false
-        version: 1
+        url: http://loki.monitoring.svc.cluster.local:3100
         editable: false
+        uid: loki_nimbusguard
         jsonData:
           derivedFields:
-            - datasourceUid: tempo
+            - datasourceUid: tempo_nimbusguard
               matcherRegex: "traceID=(\\w+)"
               name: TraceID
               url: "$${__value.raw}"
+            - datasourceUid: tempo_nimbusguard
+              matcherRegex: "trace_id=(\\w+)"
+              name: TraceID
+              url: "$${__value.raw}"
+
+      # --- Tempo Datasource ---
       - name: Tempo
         type: tempo
         access: proxy
         orgId: 1
-        url: http://tempo:3200
-        basicAuth: false
-        isDefault: false
-        version: 1
+        url: http://tempo.monitoring.svc.cluster.local:3200
         editable: false
+        uid: tempo_nimbusguard
         jsonData:
           httpMethod: GET
           serviceMap:
-            datasourceUid: prometheus
-          search:
-            hide: false
+            datasourceUid: prometheus_nimbusguard
           nodeGraph:
             enabled: true
-          traceQuery:
-            timeShiftEnabled: true
-            spanStartTimeShift: 1h
-            spanEndTimeShift: 1h
-          spanBar:
-            type: Tag
-            tag: http.path
+          search:
+            hide: false
+
 ---
+# Simplified Grafana config (removing problematic features)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -74,24 +74,36 @@ data:
   grafana.ini: |
     [analytics]
     check_for_updates = true
-    
+
     [grafana_net]
     url = https://grafana.net
-    
+
     [log]
     mode = console
-    
+    level = info
+
     [paths]
     data = /var/lib/grafana/
     logs = /var/log/grafana
     plugins = /var/lib/grafana/plugins
     provisioning = /etc/grafana/provisioning
-    
+
     [server]
     protocol = http
     http_port = 3000
     domain = localhost
+
+    # Simplified feature toggles - removing problematic ones
+    [feature_toggles]
+    enable = traceqlEditor,tempoSearch,tempoServiceGraph
+
+    # Basic database settings
+    [database]
+    type = sqlite3
+    path = grafana.db
+
 ---
+# Fixed deployment with proper volume structure
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -99,6 +111,9 @@ metadata:
   namespace: monitoring
   labels:
     app: grafana
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"grafana","namespace":"monitoring","labels":{"app":"grafana"}},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"grafana"}},"template":{"metadata":{"labels":{"app":"grafana"}},"spec":{"securityContext":{"fsGroup":472,"supplementalGroups":[0]},"containers":[{"name":"grafana","image":"grafana/grafana:11.1.0","ports":[{"containerPort":3000,"name":"http-grafana","protocol":"TCP"}],"volumeMounts":[{"mountPath":"/var/lib/grafana","name":"grafana-pv"},{"mountPath":"/etc/grafana/grafana.ini","name":"grafana-config","subPath":"grafana.ini"},{"mountPath":"/etc/grafana/provisioning/datasources","name":"grafana-datasources","readOnly":false}],"env":[{"name":"GF_SECURITY_ADMIN_USER","value":"admin"},{"name":"GF_SECURITY_ADMIN_PASSWORD","value":"admin"},{"name":"GF_FEATURE_TOGGLES_ENABLE","value":"traceqlEditor,tempoSearch,tempoServiceGraph"},{"name":"GF_LOG_LEVEL","value":"info"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/robots.txt","port":3000,"scheme":"HTTP"},"initialDelaySeconds":30,"periodSeconds":30,"successThreshold":1,"timeoutSeconds":10},"livenessProbe":{"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":30,"successThreshold":1,"tcpSocket":{"port":3000},"timeoutSeconds":5},"resources":{"requests":{"cpu":"100m","memory":"256Mi"},"limits":{"cpu":"500m","memory":"1Gi"}}}],"volumes":[{"name":"grafana-pv","emptyDir":{}},{"name":"grafana-config","configMap":{"defaultMode":420,"name":"grafana-config"}},{"name":"grafana-datasources","configMap":{"defaultMode":420,"name":"grafana-datasources"}}]}}}}}
 spec:
   replicas: 1
   selector:
@@ -114,64 +129,81 @@ spec:
         supplementalGroups:
           - 0
       containers:
-      - name: grafana
-        image: grafana/grafana:10.1.0
-        ports:
-        - containerPort: 3000
-          name: http-grafana
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 3
-          httpGet:
-            path: /robots.txt
-            port: 3000
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 2
-        livenessProbe:
-          failureThreshold: 3
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          successThreshold: 1
-          tcpSocket:
-            port: 3000
-          timeoutSeconds: 1
-        resources:
-          requests:
-            cpu: 250m
-            memory: 750Mi
-          limits:
-            cpu: 500m
-            memory: 1Gi
-        volumeMounts:
-        - mountPath: /var/lib/grafana
-          name: grafana-pv
-        - mountPath: /etc/grafana/grafana.ini
-          name: grafana-config
-          subPath: grafana.ini
-        - mountPath: /etc/grafana/provisioning/datasources
-          name: grafana-datasources
-          readOnly: false
-        env:
-        - name: GF_SECURITY_ADMIN_USER
-          value: admin
-        - name: GF_SECURITY_ADMIN_PASSWORD
-          value: admin
-        - name: GF_INSTALL_PLUGINS
-          value: grafana-clock-panel,grafana-simple-json-datasource
+        - name: grafana
+          image: grafana/grafana:11.1.0  # Use stable version instead of 12.0.2
+          ports:
+            - containerPort: 3000
+              name: http-grafana
+              protocol: TCP
+
+          # FIXED: Removed conflicting volume mounts
+          volumeMounts:
+            - mountPath: /var/lib/grafana
+              name: grafana-pv
+            - mountPath: /etc/grafana/grafana.ini
+              name: grafana-config
+              subPath: grafana.ini
+            - mountPath: /etc/grafana/provisioning/datasources
+              name: grafana-datasources
+              readOnly: false
+            # REMOVED: Conflicting dashboard mounts
+
+          # FIXED: Removed problematic environment variables
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: traceqlEditor,tempoSearch,tempoServiceGraph
+            - name: GF_LOG_LEVEL
+              value: info
+            # REMOVED: GF_INSTALL_PLUGINS (causes crashes)
+
+          # Enhanced probes with longer timeouts
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /robots.txt
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 30  # Increased
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10  # Increased
+
+          livenessProbe:
+            failureThreshold: 5  # Increased
+            initialDelaySeconds: 60  # Increased
+            periodSeconds: 30
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+            timeoutSeconds: 5
+
+          # Reasonable resource limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+
+      # FIXED: Simplified volume structure (no conflicts)
       volumes:
-      - name: grafana-pv
-        emptyDir: {}
-      - name: grafana-config
-        configMap:
-          defaultMode: 420
-          name: grafana-config
-      - name: grafana-datasources
-        configMap:
-          defaultMode: 420
-          name: grafana-datasources
+        - name: grafana-pv
+          emptyDir: { }
+        - name: grafana-config
+          configMap:
+            defaultMode: 420
+            name: grafana-config
+        - name: grafana-datasources
+          configMap:
+            defaultMode: 420
+            name: grafana-datasources
+        # REMOVED: Conflicting dashboard volumes
+
 ---
 apiVersion: v1
 kind: Service

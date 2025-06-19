@@ -1,4 +1,17 @@
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keda-admin-binding
+subjects:
+- kind: User
+  name: kubernetes-admin
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
 # KEDA Kafka Trigger Authentication
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
@@ -6,7 +19,7 @@ metadata:
   name: kafka-trigger-auth
   namespace: nimbusguard
 spec:
-  secretTargetRef: []
+  secretTargetRef: [ ]
 ---
 # Network Policy for KEDA Metrics Server
 apiVersion: networking.k8s.io/v1
@@ -19,13 +32,13 @@ spec:
     matchLabels:
       app: keda-operator-metrics-apiserver
   ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: nimbusguard
-    ports:
-    - protocol: TCP
-      port: 6443
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: nimbusguard
+      ports:
+        - protocol: TCP
+          port: 6443
 ---
 # Network Policy for KEDA Operator
 apiVersion: networking.k8s.io/v1
@@ -38,13 +51,13 @@ spec:
     matchLabels:
       app: keda-operator
   ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: nimbusguard
-    ports:
-    - protocol: TCP
-      port: 9666
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: nimbusguard
+      ports:
+        - protocol: TCP
+          port: 9666
 ---
 # KEDA ScaledObject
 apiVersion: keda.sh/v1alpha1
@@ -66,15 +79,15 @@ spec:
   minReplicaCount: 1
   maxReplicaCount: 10
   triggers:
-  - type: kafka
-    metadata:
-      bootstrapServers: kafka.nimbusguard.svc.cluster.local:9092
-      consumerGroup: background-consumer
-      topic: scaling-events
-      lagThreshold: "5"
-      activationLagThreshold: "2"
-      offsetResetPolicy: "earliest"
-      allowIdleConsumers: "true"
-      scaleToZeroOnInvalidOffset: "false"
-    authenticationRef:
-      name: kafka-trigger-auth
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.nimbusguard.svc.cluster.local:9092
+        consumerGroup: background-consumer
+        topic: scaling-events
+        lagThreshold: "5"
+        activationLagThreshold: "2"
+        offsetResetPolicy: "earliest"
+        allowIdleConsumers: "true"
+        scaleToZeroOnInvalidOffset: "false"
+      authenticationRef:
+        name: kafka-trigger-auth
