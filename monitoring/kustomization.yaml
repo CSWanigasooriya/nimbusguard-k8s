@@ -6,6 +6,7 @@ resources:
   - loki.yaml
   - tempo.yaml
   - grafana.yaml
+  - node-exporter.yaml
 
 namespace: monitoring
 

@@ -1,5 +1,5 @@
 ---
-# Custom Resource Definition
+# Updated Custom Resource Definition for DQN-based Autoscaling
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -28,6 +28,8 @@ spec:
                 - namespace
                 - target_labels
                 - metrics_config
+                - minReplicas
+                - maxReplicas
               properties:
                 namespace:
                   type: string
@@ -37,51 +39,146 @@ spec:
                   description: "Labels to identify the target workload"
                   additionalProperties:
                     type: string
+                minReplicas:
+                  type: integer
+                  description: "Minimum number of replicas"
+                  minimum: 1
+                  default: 1
+                maxReplicas:
+                  type: integer
+                  description: "Maximum number of replicas"
+                  minimum: 1
+                  default: 10
+
+                # Updated for DQN-based decision making
                 metrics_config:
                   type: object
                   required:
                     - prometheus_url
-                    - evaluation_interval
-                    - decision_window
-                    - metrics
                   properties:
                     prometheus_url:
                       type: string
                       description: "URL of the Prometheus server"
-                    evaluation_interval:
-                      type: integer
-                      description: "Interval in seconds between evaluations"
-                      minimum: 1
-                    decision_window:
+                      default: "http://prometheus.monitoring.svc.cluster.local:9090"
+                    tempo_url:
                       type: string
-                      description: "Time window for decision making (e.g., '5m', '1h')"
-                    trace_decisions:
-                      type: boolean
-                      description: "Whether to trace decision-making process"
+                      description: "URL of the Tempo server"
+                      default: "http://tempo.monitoring.svc.cluster.local:3200"
+                    loki_url:
+                      type: string
+                      description: "URL of the Loki server"
+                      default: "http://loki.monitoring.svc.cluster.local:3100"
+
+                    # Feature collection configuration
+                    feature_collection:
+                      type: object
+                      properties:
+                        system_metrics_enabled:
+                          type: boolean
+                          description: "Enable system-level metrics collection"
+                          default: true
+                        application_metrics_enabled:
+                          type: boolean
+                          description: "Enable application-level metrics collection"
+                          default: true
+                        trace_analysis_enabled:
+                          type: boolean
+                          description: "Enable trace-based feature extraction"
+                          default: true
+                        log_analysis_enabled:
+                          type: boolean
+                          description: "Enable log-based feature extraction"
+                          default: true
+                        lookback_minutes:
+                          type: integer
+                          description: "Time window for feature extraction (minutes)"
+                          minimum: 1
+                          maximum: 60
+                          default: 5
+
+                    # Optional: Legacy metric definitions for backward compatibility
                     metrics:
                       type: array
+                      description: "Legacy metric definitions (optional, for fallback)"
                       items:
                         type: object
-                        required:
-                          - query
-                          - threshold
-                          - condition
                         properties:
+                          name:
+                            type: string
+                            description: "Metric name"
                           query:
                             type: string
-                            description: "Prometheus query to evaluate"
+                            description: "Prometheus query"
                           threshold:
                             type: number
-                            description: "Threshold value for the metric"
+                            description: "Threshold value (for fallback mode)"
                           condition:
                             type: string
                             description: "Condition to evaluate (gt, lt, eq)"
                             enum: [ gt, lt, eq ]
-                decision_engine:
-                  type: string
-                  description: "Decision engine to use (langgraph, basic)"
-                  enum: [ langgraph, basic ]
-                  default: "basic"
+
+                # DQN-specific configuration
+                ml_config:
+                  type: object
+                  properties:
+                    decision_engine:
+                      type: string
+                      description: "Decision engine to use"
+                      enum: [ dqn, rule_based, hybrid ]
+                      default: "dqn"
+                    training_mode:
+                      type: boolean
+                      description: "Enable online learning"
+                      default: false
+                    model_path:
+                      type: string
+                      description: "Path to pre-trained DQN model"
+                      default: "/models/nimbusguard_dqn.pth"
+                    epsilon_start:
+                      type: number
+                      description: "Initial exploration rate"
+                      minimum: 0.0
+                      maximum: 1.0
+                      default: 0.1
+                    confidence_threshold:
+                      type: number
+                      description: "Minimum confidence for DQN decisions"
+                      minimum: 0.0
+                      maximum: 1.0
+                      default: 0.3
+                    fallback_to_rules:
+                      type: boolean
+                      description: "Fallback to rule-based decisions if DQN fails"
+                      default: true
+
+                # Advanced configuration
+                evaluation_config:
+                  type: object
+                  properties:
+                    evaluation_interval:
+                      type: integer
+                      description: "Interval in seconds between evaluations"
+                      minimum: 15
+                      maximum: 300
+                      default: 30
+                    trace_decisions:
+                      type: boolean
+                      description: "Enable detailed decision tracing"
+                      default: false
+                    a_b_testing:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          description: "Enable A/B testing between DQN and rules"
+                          default: false
+                        dqn_ratio:
+                          type: number
+                          description: "Percentage of decisions made by DQN"
+                          minimum: 0.0
+                          maximum: 1.0
+                          default: 0.9
+
             status:
               type: object
               properties:
@@ -98,6 +195,50 @@ spec:
                 decision_reason:
                   type: string
                   description: "Reason for the last scaling decision"
+
+                # Enhanced DQN status
+                ml_status:
+                  type: object
+                  properties:
+                    model_type:
+                      type: string
+                      description: "Type of ML model used"
+                    decision_type:
+                      type: string
+                      description: "Type of last decision (exploration/exploitation)"
+                    confidence_score:
+                      type: number
+                      description: "Confidence in the decision"
+                    feature_vector_size:
+                      type: integer
+                      description: "Size of feature vector used"
+                    health_score:
+                      type: number
+                      description: "Observability health score"
+                    agent_performance:
+                      type: object
+                      properties:
+                        total_decisions:
+                          type: integer
+                        success_rate_percent:
+                          type: number
+                        current_epsilon:
+                          type: number
+
+                # Data source availability
+                data_sources:
+                  type: object
+                  properties:
+                    prometheus_available:
+                      type: boolean
+                    tempo_available:
+                      type: boolean
+                    loki_available:
+                      type: boolean
+                    last_feature_collection:
+                      type: string
+                      format: date-time
+
                 conditions:
                   type: array
                   items:
@@ -114,5 +255,26 @@ spec:
                         type: string
                       message:
                         type: string
+
       subresources:
-        status: { } 
+        status: { }
+      additionalPrinterColumns:
+        - name: Current
+          type: integer
+          description: Current replicas
+          jsonPath: .status.current_replicas
+        - name: Target
+          type: integer
+          description: Target replicas
+          jsonPath: .status.target_replicas
+        - name: Model
+          type: string
+          description: ML model type
+          jsonPath: .status.ml_status.model_type
+        - name: Confidence
+          type: number
+          description: Decision confidence
+          jsonPath: .status.ml_status.confidence_score
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
