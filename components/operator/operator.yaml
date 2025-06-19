@@ -58,18 +58,7 @@ data:
   LOG_LEVEL: "INFO"
   METRICS_PORT: "8090"
 ---
-# PersistentVolumeClaim for model storage
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: nimbusguard-models
-  namespace: nimbusguard
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
+# Note: PVC removed - using hostPath volume for local development
 ---
 # Operator Deployment
 apiVersion: apps/v1
@@ -92,6 +81,10 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: nimbusguard-operator
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
       containers:
         - name: operator
           image: nimbusguard/nimbusguard-operator:latest
@@ -138,8 +131,9 @@ spec:
               mountPath: /models
       volumes:
         - name: model-storage
-          persistentVolumeClaim:
-            claimName: nimbusguard-models
+          hostPath:
+            path: ${NIMBUSGUARD_PROJECT_PATH}/models
+            type: DirectoryOrCreate
 ---
 # Operator Service
 apiVersion: v1
