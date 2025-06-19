@@ -133,7 +133,6 @@ spec:
         - name: model-storage
           hostPath:
             path: ${NIMBUSGUARD_PROJECT_PATH}/models
-            type: DirectoryOrCreate
 ---
 # Operator Service
 apiVersion: v1
