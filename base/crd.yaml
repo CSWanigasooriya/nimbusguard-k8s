@@ -100,6 +100,12 @@ spec:
                       minimum: 0.0
                       maximum: 1.0
                       default: 0.3
+                    save_frequency:
+                      type: integer
+                      description: "Frequency (in training steps) at which to save the DQN model during training"
+                      minimum: 1
+                      maximum: 1000
+                      default: 100
 
                 evaluation_config:
                   type: object

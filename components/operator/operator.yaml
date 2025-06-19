@@ -58,6 +58,19 @@ data:
   LOG_LEVEL: "INFO"
   METRICS_PORT: "8090"
 ---
+# PersistentVolumeClaim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nimbusguard-models
+  namespace: nimbusguard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 # Operator Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -73,6 +86,10 @@ spec:
     metadata:
       labels:
         app: nimbusguard-operator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8090"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: nimbusguard-operator
       containers:
@@ -86,6 +103,8 @@ spec:
           ports:
             - containerPort: 9080
               name: health
+            - containerPort: 8090
+              name: metrics
           env:
             - name: LOG_LEVEL
               valueFrom:
@@ -114,6 +133,13 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /models
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: nimbusguard-models
 ---
 # Operator Service
 apiVersion: v1

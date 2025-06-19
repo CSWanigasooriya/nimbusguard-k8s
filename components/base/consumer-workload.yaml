@@ -170,6 +170,7 @@ spec:
     model_path: "/models/consumer-workload-dqn.pth"
     epsilon_start: 0.1
     confidence_threshold: 0.3
+    save_frequency: 50
 
   evaluation_config:
     evaluation_interval: 30
