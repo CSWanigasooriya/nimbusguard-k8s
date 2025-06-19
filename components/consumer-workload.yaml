@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: consumer-workload-v2  # Changed name to avoid conflict with existing deployment
+  name: consumer-workload
+  namespace: nimbusguard
   labels:
     app: consumer-workload
-    version: v1  # Added for IntelligentScaling targeting
 spec:
   replicas: 1
   selector:
@@ -13,7 +13,6 @@ spec:
       app.kubernetes.io/component: operator
       app.kubernetes.io/name: nimbusguard
       app.kubernetes.io/part-of: nimbusguard
-      version: v1
   template:
     metadata:
       labels:
@@ -21,20 +20,12 @@ spec:
         app.kubernetes.io/component: operator
         app.kubernetes.io/name: nimbusguard
         app.kubernetes.io/part-of: nimbusguard
-        version: v1
       annotations:
-        # Enhanced Prometheus scraping
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
-
-        # OpenTelemetry configuration
         instrumentation.opentelemetry.io/inject-python: "true"
-
-        # Loki log collection
         loki.io/collect: "true"
-
-        # DQN targeting annotation
         nimbusguard.io/dqn-target: "true"
     spec:
       containers:
@@ -43,31 +34,25 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-              name: http  # Changed from 'metrics' to 'http' for consistency
+              name: http
               protocol: TCP
           env:
             - name: LOG_LEVEL
               value: "INFO"
-
-            # Fixed OTEL configuration - Alloy is the collector, not Tempo directly
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://alloy.monitoring.svc.cluster.local:4317"  # Fixed endpoint
+              value: "http://alloy.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME
-              value: "nimbusguard-consumer-workload"  # More descriptive name
+              value: "nimbusguard-consumer-workload"
             - name: OTEL_SERVICE_VERSION
               value: "v1"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "service.name=nimbusguard-consumer-workload,service.version=v1,deployment.environment=default"
-
-            # Kafka configuration
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka:9092"
             - name: KAFKA_TOPIC
               value: "scaling-events"
             - name: KAFKA_CONSUMER_GROUP
               value: "background-consumer"
-
-            # Added: Kubernetes metadata for DQN context
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -80,8 +65,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-
-            # Added: Container resource info for accurate metrics
             - name: MEMORY_LIMIT
               valueFrom:
                 resourceFieldRef:
@@ -90,40 +73,33 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
-
-          # Increased resources for enhanced metrics collection
           resources:
             requests:
-              memory: "256Mi"  # Increased from 128Mi
-              cpu: "200m"      # Increased from 100m
+              memory: "256Mi"
+              cpu: "200m"
             limits:
-              memory: "512Mi"  # Increased from 256Mi
-              cpu: "500m"      # Increased from 200m
-
-          # Enhanced health checks with proper endpoints
+              memory: "512Mi"
+              cpu: "500m"
           livenessProbe:
             httpGet:
-              path: /live  # Use /live endpoint for liveness
+              path: /live
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-
           readinessProbe:
             httpGet:
-              path: /ready  # Use /ready endpoint for readiness
+              path: /ready
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
             successThreshold: 1
             failureThreshold: 3
-
-          # Added: Startup probe for better initialization
           startupProbe:
             httpGet:
-              path: /health  # Keep /health for startup
+              path: /health
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 2
@@ -135,16 +111,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: consumer-workload
+  namespace: nimbusguard
   labels:
     app: consumer-workload
     version: v1
   annotations:
-    # Enhanced Prometheus service discovery
     prometheus.io/scrape: "true"
     prometheus.io/port: "8080"
     prometheus.io/path: "/metrics"
-
-    # DQN targeting annotation
     nimbusguard.io/dqn-target: "true"
 spec:
   selector:
@@ -152,7 +126,6 @@ spec:
     app.kubernetes.io/component: operator
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
-    version: v1
   ports:
     - name: http
       port: 8080
@@ -166,66 +139,35 @@ apiVersion: nimbusguard.io/v1alpha1
 kind: IntelligentScaling
 metadata:
   name: consumer-workload-dqn
-  namespace: default
+  namespace: nimbusguard
   labels:
     app: consumer-workload
     autoscaler: dqn
 spec:
-  # Target workload configuration
-  namespace: default
+  namespace: nimbusguard
   target_labels:
     app: consumer-workload
     app.kubernetes.io/component: operator
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
-    version: v1
   minReplicas: 2
   maxReplicas: 20
 
-  # Enhanced metrics configuration for DQN
   metrics_config:
-    # Observability stack URLs - corrected service names
     prometheus_url: "http://prometheus.monitoring.svc.cluster.local:9090"
-    tempo_url: "http://tempo.monitoring.svc.cluster.local:3200"  # Fixed port: 3200 not 3100
+    tempo_url: "http://tempo.monitoring.svc.cluster.local:3200"
     loki_url: "http://loki.monitoring.svc.cluster.local:3100"
 
-    # Feature collection settings
+
     feature_collection:
-      system_metrics_enabled: true      # Enable 10 system-level features
-      application_metrics_enabled: true # Enable 8 application-level features
-      trace_analysis_enabled: true      # Enable 7 trace-based features
-      log_analysis_enabled: true        # Enable 5 log-based features
-      lookback_minutes: 5                # Time window for feature extraction
+      lookback_minutes: 5
 
-    # Enhanced legacy metrics with correct label selectors
-    metrics:
-      - name: "cpu_usage"
-        query: "avg(rate(container_cpu_usage_seconds_total{pod=~'consumer-workload.*',container!='POD',container!=''}[5m]))"
-        threshold: 0.8
-        condition: "gt"
-      - name: "memory_usage"
-        query: "avg(container_memory_usage_bytes{pod=~'consumer-workload.*',container!='POD',container!=''} / container_spec_memory_limit_bytes{pod=~'consumer-workload.*',container!='POD',container!=''})"
-        threshold: 0.85
-        condition: "gt"
-      - name: "request_rate"
-        query: "sum(rate(nimbusguard_http_requests_total{pod=~'consumer-workload.*'}[5m]))"  # Updated metric name
-        threshold: 100
-        condition: "gt"
-      - name: "error_rate"
-        query: "sum(rate(nimbusguard_http_requests_total{pod=~'consumer-workload.*',status=~'5..'}[5m])) / sum(rate(nimbusguard_http_requests_total{pod=~'consumer-workload.*'}[5m]))"
-        threshold: 0.05
-        condition: "gt"
-
-  # DQN-specific configuration
   ml_config:
-    decision_engine: "dqn"            # Use DQN instead of rule-based
-    training_mode: false              # Set to true to enable online learning
+    training_mode: false
     model_path: "/models/consumer-workload-dqn.pth"
-    epsilon_start: 0.1                # Initial exploration rate (10%)
-    confidence_threshold: 0.3         # Minimum confidence for DQN decisions
-    fallback_to_rules: true           # Fallback to rule-based if DQN fails
+    epsilon_start: 0.1
+    confidence_threshold: 0.3
 
-  # Evaluation configuration
   evaluation_config:
-    evaluation_interval: 30           # Evaluate every 30 seconds
-    trace_decisions: true             # Enable detailed decision logging
+    evaluation_interval: 30
+    trace_decisions: true

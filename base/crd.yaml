@@ -1,5 +1,4 @@
----
-# Updated Custom Resource Definition for DQN-based Autoscaling
+# Updated Custom Resource Definition for a Pure DQN-based Autoscaler
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -50,7 +49,6 @@ spec:
                   minimum: 1
                   default: 10
 
-                # Updated for DQN-based decision making
                 metrics_config:
                   type: object
                   required:
@@ -62,33 +60,16 @@ spec:
                       default: "http://prometheus.monitoring.svc.cluster.local:9090"
                     tempo_url:
                       type: string
-                      description: "URL of the Tempo server"
+                      description: "URL of the Tempo server (used for context, not direct features)"
                       default: "http://tempo.monitoring.svc.cluster.local:3200"
                     loki_url:
                       type: string
-                      description: "URL of the Loki server"
+                      description: "URL of the Loki server (used for context, not direct features)"
                       default: "http://loki.monitoring.svc.cluster.local:3100"
 
-                    # Feature collection configuration
                     feature_collection:
                       type: object
                       properties:
-                        system_metrics_enabled:
-                          type: boolean
-                          description: "Enable system-level metrics collection"
-                          default: true
-                        application_metrics_enabled:
-                          type: boolean
-                          description: "Enable application-level metrics collection"
-                          default: true
-                        trace_analysis_enabled:
-                          type: boolean
-                          description: "Enable trace-based feature extraction"
-                          default: true
-                        log_analysis_enabled:
-                          type: boolean
-                          description: "Enable log-based feature extraction"
-                          default: true
                         lookback_minutes:
                           type: integer
                           description: "Time window for feature extraction (minutes)"
@@ -96,88 +77,43 @@ spec:
                           maximum: 60
                           default: 5
 
-                    # Optional: Legacy metric definitions for backward compatibility
-                    metrics:
-                      type: array
-                      description: "Legacy metric definitions (optional, for fallback)"
-                      items:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            description: "Metric name"
-                          query:
-                            type: string
-                            description: "Prometheus query"
-                          threshold:
-                            type: number
-                            description: "Threshold value (for fallback mode)"
-                          condition:
-                            type: string
-                            description: "Condition to evaluate (gt, lt, eq)"
-                            enum: [ gt, lt, eq ]
-
-                # DQN-specific configuration
                 ml_config:
                   type: object
                   properties:
-                    decision_engine:
-                      type: string
-                      description: "Decision engine to use"
-                      enum: [ dqn, rule_based, hybrid ]
-                      default: "dqn"
                     training_mode:
                       type: boolean
-                      description: "Enable online learning"
+                      description: "Enable online learning and model updates"
                       default: false
                     model_path:
                       type: string
-                      description: "Path to pre-trained DQN model"
+                      description: "Path to the pre-trained DQN model"
                       default: "/models/nimbusguard_dqn.pth"
                     epsilon_start:
                       type: number
-                      description: "Initial exploration rate"
+                      description: "Initial exploration rate for the DQN agent"
                       minimum: 0.0
                       maximum: 1.0
                       default: 0.1
                     confidence_threshold:
                       type: number
-                      description: "Minimum confidence for DQN decisions"
+                      description: "Minimum confidence required for the agent to take a scaling action. If below this, no action will be taken."
                       minimum: 0.0
                       maximum: 1.0
                       default: 0.3
-                    fallback_to_rules:
-                      type: boolean
-                      description: "Fallback to rule-based decisions if DQN fails"
-                      default: true
 
-                # Advanced configuration
                 evaluation_config:
                   type: object
                   properties:
                     evaluation_interval:
                       type: integer
-                      description: "Interval in seconds between evaluations"
+                      description: "Interval in seconds between scaling evaluations"
                       minimum: 15
                       maximum: 300
                       default: 30
                     trace_decisions:
                       type: boolean
-                      description: "Enable detailed decision tracing"
+                      description: "Enable detailed tracing for DQN decisions"
                       default: false
-                    a_b_testing:
-                      type: object
-                      properties:
-                        enabled:
-                          type: boolean
-                          description: "Enable A/B testing between DQN and rules"
-                          default: false
-                        dqn_ratio:
-                          type: number
-                          description: "Percentage of decisions made by DQN"
-                          minimum: 0.0
-                          maximum: 1.0
-                          default: 0.9
 
             status:
               type: object
@@ -185,36 +121,27 @@ spec:
                 last_evaluation:
                   type: string
                   format: date-time
-                  description: "Timestamp of last evaluation"
                 current_replicas:
                   type: integer
-                  description: "Current number of replicas"
                 target_replicas:
                   type: integer
-                  description: "Target number of replicas"
                 decision_reason:
                   type: string
-                  description: "Reason for the last scaling decision"
-
-                # Enhanced DQN status
                 ml_status:
                   type: object
                   properties:
                     model_type:
                       type: string
-                      description: "Type of ML model used"
+                      description: "Always DQN in this version."
                     decision_type:
                       type: string
-                      description: "Type of last decision (exploration/exploitation)"
+                      description: "Type of last decision (e.g., exploration, exploitation, no_action_low_confidence)"
                     confidence_score:
                       type: number
-                      description: "Confidence in the decision"
                     feature_vector_size:
                       type: integer
-                      description: "Size of feature vector used"
                     health_score:
                       type: number
-                      description: "Observability health score"
                     agent_performance:
                       type: object
                       properties:
@@ -224,8 +151,6 @@ spec:
                           type: number
                         current_epsilon:
                           type: number
-
-                # Data source availability
                 data_sources:
                   type: object
                   properties:
@@ -238,7 +163,6 @@ spec:
                     last_feature_collection:
                       type: string
                       format: date-time
-
                 conditions:
                   type: array
                   items:
@@ -255,7 +179,6 @@ spec:
                         type: string
                       message:
                         type: string
-
       subresources:
         status: { }
       additionalPrinterColumns:
