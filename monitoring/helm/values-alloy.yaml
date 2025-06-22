@@ -206,9 +206,95 @@ alloy:
         scrape_interval = "15s"
       }
 
-      // 6. Application pods with prometheus.io/scrape annotation
+      // 6. NimbusGuard application pods (specific namespace filtering)
+      discovery.relabel "nimbusguard_pods" {
+        targets = discovery.kubernetes.pods_for_metrics.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          regex = "nimbusguard|nimbusguard-serving|nimbusguard-ml"
+          action = "keep"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex = "true"
+          action = "keep"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+          action = "replace"
+          target_label = "__metrics_path__"
+          regex = "(.+)"
+          replacement = "${1}"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+          regex = ""
+          action = "replace"
+          target_label = "__metrics_path__"
+          replacement = "/metrics"
+        }
+
+        rule {
+          source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+          action = "replace"
+          regex = "([^:]+)(?::\\d+)?;(\\d+)"
+          replacement = "${1}:${2}"
+          target_label = "__address__"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          action = "replace"
+          target_label = "pod"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          action = "replace"
+          target_label = "namespace"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          action = "replace"
+          target_label = "job"
+          replacement = "${1}"
+        }
+
+        // Add labels for DQN feature mapping
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          action = "replace"
+          target_label = "app"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_version"]
+          action = "replace"
+          target_label = "version"
+        }
+      }
+
+      prometheus.scrape "nimbusguard_pods" {
+        targets = discovery.relabel.nimbusguard_pods.output
+        forward_to = [prometheus.remote_write.default.receiver]
+        scrape_interval = "15s"
+        job_name = "nimbusguard"
+      }
+
+      // 7. Other application pods with prometheus.io/scrape annotation
       discovery.relabel "app_pods" {
         targets = discovery.kubernetes.pods_for_metrics.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          regex = "nimbusguard|nimbusguard-serving|nimbusguard-ml"
+          action = "drop"
+        }
 
         rule {
           source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]

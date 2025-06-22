@@ -18,6 +18,8 @@ spec:
         value: "11"
       - name: ACTION_DIM
         value: "5"
+      - name: MODEL_PATH
+        value: "/models"
       resources:
         requests:
           cpu: 100m
@@ -28,6 +30,15 @@ spec:
       ports:
       - containerPort: 8080
         protocol: TCP
+      volumeMounts:
+      - name: model-storage
+        mountPath: /models
+        readOnly: true
+    volumes:
+    - name: model-storage
+      hostPath:
+        path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/models
+        type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: ConfigMap

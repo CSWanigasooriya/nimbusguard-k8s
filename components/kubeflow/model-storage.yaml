@@ -1,0 +1,168 @@
+---
+# Option 1: PersistentVolume for local model storage
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nimbusguard-model-pv
+  labels:
+    app: nimbusguard
+    component: model-storage
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: ${NIMBUSGUARD_PROJECT_PATH}/models
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: Exists
+
+---
+# Option 2: PersistentVolumeClaim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nimbusguard-model-pvc
+  namespace: nimbusguard-serving
+  labels:
+    app: nimbusguard
+    component: model-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-storage
+  selector:
+    matchLabels:
+      app: nimbusguard
+      component: model-storage
+
+---
+# ConfigMap with model loading instructions
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-loader-script
+  namespace: nimbusguard-serving
+data:
+  load_model.py: |
+    #!/usr/bin/env python3
+    """
+    Model loader script for NimbusGuard DQN models
+    Loads models from local storage and prepares them for inference
+    """
+    
+    import os
+    import torch
+    import pickle
+    import json
+    from pathlib import Path
+    
+    MODEL_DIR = "/models"
+    
+    def save_dqn_model(model, model_name="nimbusguard-dqn", version="latest"):
+        """Save a trained DQN model to local storage"""
+        model_path = Path(MODEL_DIR) / model_name / version
+        model_path.mkdir(parents=True, exist_ok=True)
+        
+        # Save PyTorch model
+        torch.save(model.state_dict(), model_path / "model.pth")
+        
+        # Save model metadata
+        metadata = {
+            "model_name": model_name,
+            "version": version,
+            "state_dim": getattr(model, 'state_dim', 11),
+            "action_dim": getattr(model, 'action_dim', 5),
+            "created_at": str(datetime.now()),
+            "framework": "pytorch"
+        }
+        
+        with open(model_path / "metadata.json", "w") as f:
+            json.dump(metadata, f, indent=2)
+        
+        print(f"Model saved to {model_path}")
+        return str(model_path)
+    
+    def load_dqn_model(model_class, model_name="nimbusguard-dqn", version="latest"):
+        """Load a DQN model from local storage"""
+        model_path = Path(MODEL_DIR) / model_name / version
+        
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found at {model_path}")
+        
+        # Load metadata
+        with open(model_path / "metadata.json", "r") as f:
+            metadata = json.load(f)
+        
+        # Initialize model
+        model = model_class(
+            state_dim=metadata["state_dim"],
+            action_dim=metadata["action_dim"]
+        )
+        
+        # Load weights
+        model.load_state_dict(torch.load(model_path / "model.pth"))
+        model.eval()
+        
+        print(f"Model loaded from {model_path}")
+        return model, metadata
+    
+    def list_available_models():
+        """List all available models in storage"""
+        models = []
+        model_dir = Path(MODEL_DIR)
+        
+        if not model_dir.exists():
+            return models
+        
+        for model_name_dir in model_dir.iterdir():
+            if model_name_dir.is_dir():
+                for version_dir in model_name_dir.iterdir():
+                    if version_dir.is_dir() and (version_dir / "metadata.json").exists():
+                        with open(version_dir / "metadata.json", "r") as f:
+                            metadata = json.load(f)
+                        models.append({
+                            "name": model_name_dir.name,
+                            "version": version_dir.name,
+                            "path": str(version_dir),
+                            "metadata": metadata
+                        })
+        
+        return models
+    
+    if __name__ == "__main__":
+        print("Available models:")
+        for model in list_available_models():
+            print(f"  {model['name']}:{model['version']} - {model['path']}")
+  
+  setup_models.sh: |
+    #!/bin/bash
+    # Setup script for model directory
+    
+    MODEL_DIR="/models"
+    
+    echo "Setting up model directory: $MODEL_DIR"
+    mkdir -p "$MODEL_DIR"
+    
+    # Create directory structure
+    mkdir -p "$MODEL_DIR/nimbusguard-dqn/latest"
+    mkdir -p "$MODEL_DIR/nimbusguard-dqn/v1.0"
+    mkdir -p "$MODEL_DIR/checkpoints"
+    
+    # Set permissions
+    chmod -R 755 "$MODEL_DIR"
+    
+    echo "Model directory structure created:"
+    find "$MODEL_DIR" -type d
+    
+    echo "Ready to store models in $MODEL_DIR" 
