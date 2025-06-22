@@ -15,7 +15,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: local-storage
   hostPath:
-    path: ${NIMBUSGUARD_PROJECT_PATH}/models
+    path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/models
     type: DirectoryOrCreate
   nodeAffinity:
     required:

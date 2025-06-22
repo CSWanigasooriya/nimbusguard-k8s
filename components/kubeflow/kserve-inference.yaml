@@ -20,6 +20,8 @@ spec:
         value: "5"
       - name: MODEL_PATH
         value: "/models"
+      - name: PROMETHEUS_ENDPOINT
+        value: "http://prometheus.monitoring.svc.cluster.local:9090"
       resources:
         requests:
           cpu: 100m
@@ -36,9 +38,8 @@ spec:
         readOnly: true
     volumes:
     - name: model-storage
-      hostPath:
-        path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/models
-        type: DirectoryOrCreate
+      persistentVolumeClaim:
+        claimName: nimbusguard-model-pvc
 ---
 apiVersion: v1
 kind: ConfigMap

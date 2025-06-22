@@ -49,9 +49,8 @@ spec:
               mountPath: /logs
           volumes:
           - name: model-storage
-            hostPath:
-              path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/models
-              type: DirectoryOrCreate
+            persistentVolumeClaim:
+              claimName: nimbusguard-model-pvc
           - name: training-logs
             hostPath:
               path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/logs

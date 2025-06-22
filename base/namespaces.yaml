@@ -20,17 +20,7 @@ metadata:
     app.kubernetes.io/name: monitoring
     app.kubernetes.io/part-of: nimbusguard-monitoring
     app.kubernetes.io/component: namespace
----
-# ML Pipeline Namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: nimbusguard-ml
-  labels:
-    name: nimbusguard-ml
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/part-of: nimbusguard
-    app.kubernetes.io/component: ml-pipelines
+
 ---
 # Model Serving Namespace
 apiVersion: v1

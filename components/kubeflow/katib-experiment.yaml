@@ -88,7 +88,7 @@ spec:
               - --metrics-path=/tmp/metrics.log
               env:
               - name: PROMETHEUS_ENDPOINT
-                value: "http://prometheus.nimbusguard.svc.cluster.local:9090"
+                value: "http://prometheus.monitoring.svc.cluster.local:9090"
               - name: COLLECTION_HOURS
                 value: "12"  # Shorter for hyperparameter tuning
               resources:
