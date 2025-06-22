@@ -1,0 +1,219 @@
+---
+# MinIO for Dataset Storage
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio
+  labels:
+    name: minio
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: nimbusguard
+
+---
+# MinIO PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: minio-storage-pv
+  labels:
+    app: minio
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /host_mnt/Users/chamathwanigasooriya/Documents/FYP/nimbusguard/minio-data
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/os
+          operator: In
+          values:
+          - linux
+
+---
+# MinIO PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-storage-pvc
+  namespace: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-storage
+
+---
+# MinIO Secret for credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  namespace: minio
+type: Opaque
+data:
+  # root user: nimbusguard (base64 encoded)
+  root-user: bmltYnVzZ3VhcmQ=
+  # root password: nimbusguard123 (base64 encoded)
+  root-password: bmltYnVzZ3VhcmQxMjM=
+
+---
+# MinIO Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+        args:
+        - server
+        - /data
+        - --console-address
+        - ":9001"
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: root-password
+        - name: MINIO_BROWSER_REDIRECT_URL
+          value: "http://localhost:9001"
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        volumeMounts:
+        - name: storage
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: minio-storage-pvc
+
+---
+# MinIO API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-api
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9000
+    targetPort: 9000
+    protocol: TCP
+    name: api
+  selector:
+    app: minio
+
+---
+# MinIO Console Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9001
+    targetPort: 9001
+    protocol: TCP
+    name: console
+  selector:
+    app: minio
+
+---
+# ConfigMap for MinIO client configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-config
+  namespace: minio
+data:
+  endpoint: "minio-api.minio.svc.cluster.local:9000"
+  access-key: "nimbusguard"
+  secret-key: "nimbusguard123"
+  bucket-name: "datasets"
+  region: "us-east-1"
+
+---
+# Job to create initial bucket and upload sample data
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup
+  namespace: minio
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mc
+        image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Setting up MinIO..."
+          mc alias set local http://minio-api:9000 nimbusguard nimbusguard123
+          mc mb local/datasets --ignore-existing
+          mc mb local/models --ignore-existing
+          mc mb local/logs --ignore-existing
+          echo "Buckets created successfully!"
+          mc ls local/
+        env:
+        - name: MC_HOST_local
+          value: "http://nimbusguard:nimbusguard123@minio-api:9000" 

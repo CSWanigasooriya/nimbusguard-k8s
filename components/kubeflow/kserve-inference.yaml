@@ -22,6 +22,27 @@ spec:
         value: "/models"
       - name: PROMETHEUS_ENDPOINT
         value: "http://prometheus.monitoring.svc.cluster.local:9090"
+      # MinIO configuration for model loading
+      - name: USE_MINIO
+        value: "true"
+      - name: MINIO_ENDPOINT
+        value: "minio-api.minio.svc.cluster.local:9000"
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: minio-model-storage-secret
+            key: access-key
+            optional: true
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef:
+            name: minio-model-storage-secret
+            key: secret-key
+            optional: true
+      - name: MINIO_BUCKET
+        value: "models"
+      - name: MINIO_REGION
+        value: "us-east-1"
       resources:
         requests:
           cpu: 100m

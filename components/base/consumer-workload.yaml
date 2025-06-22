@@ -134,11 +134,11 @@ spec:
       protocol: TCP
 
 ---
-# KServe-Only IntelligentScaling Resource
+# IntelligentScaling Resource
 apiVersion: nimbusguard.io/v1alpha1
 kind: IntelligentScaling
 metadata:
-  name: consumer-workload-kserve-only
+  name: consumer-workload
   namespace: nimbusguard
   labels:
     app: consumer-workload
@@ -160,7 +160,7 @@ spec:
     feature_collection:
       lookback_minutes: 5
 
-  # KServe-only ML configuration
+  # ML configuration
   ml_config:
     # Required KServe endpoint
     kserve_endpoint: "http://nimbusguard-dqn-model-predictor.nimbusguard-serving.svc.cluster.local"

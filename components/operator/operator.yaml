@@ -58,7 +58,7 @@ data:
   LOG_LEVEL: "INFO"
   METRICS_PORT: "8090"
   # KServe endpoint for Kubeflow integration - updated to working endpoint
-  KSERVE_ENDPOINT: "http://nimbusguard-dqn-model-predictor.nimbusguard-serving.svc.cluster.local"
+  KSERVE_ENDPOINT: "http://nimbusguard-dqn-model-predictor.nimbusguard-serving.svc.cluster.local/predict"
   # Whether to fallback to local model if KServe fails
   KUBEFLOW_FALLBACK_TO_LOCAL: "true"
 ---
@@ -134,6 +134,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            # Lower confidence threshold for demo/testing
+            - name: DQN_CONFIDENCE_THRESHOLD
+              value: "0.2"
           resources:
             requests:
               memory: "128Mi"

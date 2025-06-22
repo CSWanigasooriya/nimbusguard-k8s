@@ -24,13 +24,37 @@ spec:
             - /app/continuous_training.py
             env:
             - name: PROMETHEUS_ENDPOINT
-              value: "http://prometheus.nimbusguard.svc.cluster.local:9090"
+              value: "http://prometheus.monitoring.svc.cluster.local:9090"
             - name: COLLECTION_HOURS
               value: "4"  # Collect last 4 hours of data
             - name: MODEL_PATH
               value: "/models"
             - name: KSERVE_MODEL_NAME
               value: "nimbusguard-dqn"
+            # External dataset configuration
+            - name: USE_EXTERNAL_DATASET
+              value: "true"
+            - name: EXTERNAL_DATASET_PATH
+              value: "/datasets"
+            # MinIO configuration
+            - name: USE_MINIO
+              value: "true"
+            - name: MINIO_ENDPOINT
+              value: "minio-api.minio.svc.cluster.local:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-user
+                  optional: true
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-password
+                  optional: true
+            - name: MINIO_BUCKET
+              value: "datasets"
             - name: TRAINING_MODE
               value: "continuous"
             - name: MIN_SAMPLES
@@ -45,12 +69,18 @@ spec:
             volumeMounts:
             - name: model-storage
               mountPath: /models
+            - name: dataset-storage
+              mountPath: /datasets
             - name: training-logs
               mountPath: /logs
           volumes:
           - name: model-storage
             persistentVolumeClaim:
               claimName: nimbusguard-model-pvc
+          - name: dataset-storage
+            hostPath:
+              path: /host_mnt/Users/chamathwanigasooriya/Documents/FYP/nimbusguard/datasets
+              type: DirectoryOrCreate
           - name: training-logs
             hostPath:
               path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/logs

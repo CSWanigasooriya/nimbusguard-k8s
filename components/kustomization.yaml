@@ -6,6 +6,7 @@ resources:
 - keda/
 - operator/
 - kubeflow/
+- storage/
 
 namespace: nimbusguard
 

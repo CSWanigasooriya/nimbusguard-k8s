@@ -1,50 +1,36 @@
 ---
-# Option 1: PersistentVolume for local model storage
+# MinIO Secret for model storage access
 apiVersion: v1
-kind: PersistentVolume
+kind: Secret
 metadata:
-  name: nimbusguard-model-pv
-  labels:
-    app: nimbusguard
-    component: model-storage
-spec:
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  hostPath:
-    path: /Users/chamathwanigasooriya/Documents/FYP/nimbusguard/models
-    type: DirectoryOrCreate
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: kubernetes.io/hostname
-          operator: Exists
+  name: minio-model-storage-secret
+  namespace: nimbusguard-serving
+type: Opaque
+data:
+  # MinIO credentials for model storage
+  # endpoint: minio-api.minio.svc.cluster.local:9000 (base64 encoded)
+  endpoint: bWluaW8tYXBpLm1pbmlvLnN2Yy5jbHVzdGVyLmxvY2FsOjkwMDA=
+  # access-key: nimbusguard (base64 encoded)
+  access-key: bmltYnVzZ3VhcmQ=
+  # secret-key: nimbusguard123 (base64 encoded)  
+  secret-key: bmltYnVzZ3VhcmQxMjM=
+  # bucket: models (base64 encoded)
+  bucket: bW9kZWxz
+  # region: us-east-1 (base64 encoded)
+  region: dXMtZWFzdC0x
 
 ---
-# Option 2: PersistentVolumeClaim for model storage
+# ConfigMap for MinIO model storage configuration
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: ConfigMap
 metadata:
-  name: nimbusguard-model-pvc
+  name: minio-model-config
   namespace: nimbusguard-serving
-  labels:
-    app: nimbusguard
-    component: model-storage
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: local-storage
-  selector:
-    matchLabels:
-      app: nimbusguard
-      component: model-storage
+data:
+  endpoint: "minio-api.minio.svc.cluster.local:9000"
+  bucket: "models"
+  region: "us-east-1"
+  use_ssl: "false"
 
 ---
 # ConfigMap with model loading instructions
@@ -58,111 +44,202 @@ data:
     #!/usr/bin/env python3
     """
     Model loader script for NimbusGuard DQN models
-    Loads models from local storage and prepares them for inference
+    Loads models from MinIO S3-compatible storage and prepares them for inference
     """
     
     import os
     import torch
     import pickle
     import json
+    import boto3
+    import tempfile
+    from datetime import datetime
     from pathlib import Path
+    from botocore.exceptions import ClientError
     
-    MODEL_DIR = "/models"
+    def get_s3_client():
+        """Get S3 client for MinIO"""
+        return boto3.client(
+            's3',
+            endpoint_url=f"http://{os.getenv('MINIO_ENDPOINT', 'minio-api.minio.svc.cluster.local:9000')}",
+            aws_access_key_id=os.getenv('MINIO_ACCESS_KEY', 'nimbusguard'),
+            aws_secret_access_key=os.getenv('MINIO_SECRET_KEY', 'nimbusguard123'),
+            region_name=os.getenv('MINIO_REGION', 'us-east-1')
+        )
     
     def save_dqn_model(model, model_name="nimbusguard-dqn", version="latest"):
-        """Save a trained DQN model to local storage"""
-        model_path = Path(MODEL_DIR) / model_name / version
-        model_path.mkdir(parents=True, exist_ok=True)
+        """Save a trained DQN model to MinIO storage"""
+        s3_client = get_s3_client()
+        bucket = os.getenv('MINIO_BUCKET', 'models')
         
-        # Save PyTorch model
-        torch.save(model.state_dict(), model_path / "model.pth")
-        
-        # Save model metadata
-        metadata = {
-            "model_name": model_name,
-            "version": version,
-            "state_dim": getattr(model, 'state_dim', 11),
-            "action_dim": getattr(model, 'action_dim', 5),
-            "created_at": str(datetime.now()),
-            "framework": "pytorch"
-        }
-        
-        with open(model_path / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=2)
-        
-        print(f"Model saved to {model_path}")
-        return str(model_path)
+        # Create temporary directory for model files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # Save PyTorch model
+            model_file = temp_path / "model.pth"
+            torch.save(model.state_dict(), model_file)
+            
+            # Save model metadata
+            metadata = {
+                "model_name": model_name,
+                "version": version,
+                "state_dim": getattr(model, 'state_dim', 11),
+                "action_dim": getattr(model, 'action_dim', 5),
+                "created_at": str(datetime.now()),
+                "framework": "pytorch"
+            }
+            
+            metadata_file = temp_path / "metadata.json"
+            with open(metadata_file, "w") as f:
+                json.dump(metadata, f, indent=2)
+            
+            # Upload to MinIO
+            model_key = f"{model_name}/{version}/model.pth"
+            metadata_key = f"{model_name}/{version}/metadata.json"
+            
+            try:
+                s3_client.upload_file(str(model_file), bucket, model_key)
+                s3_client.upload_file(str(metadata_file), bucket, metadata_key)
+                print(f"Model saved to MinIO: s3://{bucket}/{model_name}/{version}/")
+                return f"s3://{bucket}/{model_name}/{version}/"
+            except ClientError as e:
+                print(f"Error uploading model: {e}")
+                raise
     
     def load_dqn_model(model_class, model_name="nimbusguard-dqn", version="latest"):
-        """Load a DQN model from local storage"""
-        model_path = Path(MODEL_DIR) / model_name / version
+        """Load a DQN model from MinIO storage"""
+        s3_client = get_s3_client()
+        bucket = os.getenv('MINIO_BUCKET', 'models')
         
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model not found at {model_path}")
+        model_key = f"{model_name}/{version}/model.pth"
+        metadata_key = f"{model_name}/{version}/metadata.json"
         
-        # Load metadata
-        with open(model_path / "metadata.json", "r") as f:
-            metadata = json.load(f)
-        
-        # Initialize model
-        model = model_class(
-            state_dim=metadata["state_dim"],
-            action_dim=metadata["action_dim"]
-        )
-        
-        # Load weights
-        model.load_state_dict(torch.load(model_path / "model.pth"))
-        model.eval()
-        
-        print(f"Model loaded from {model_path}")
-        return model, metadata
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            try:
+                # Download metadata
+                metadata_file = temp_path / "metadata.json"
+                s3_client.download_file(bucket, metadata_key, str(metadata_file))
+                
+                with open(metadata_file, "r") as f:
+                    metadata = json.load(f)
+                
+                # Download model
+                model_file = temp_path / "model.pth"
+                s3_client.download_file(bucket, model_key, str(model_file))
+                
+                # Initialize model
+                model = model_class(
+                    state_dim=metadata["state_dim"],
+                    action_dim=metadata["action_dim"]
+                )
+                
+                # Load weights
+                model.load_state_dict(torch.load(model_file))
+                model.eval()
+                
+                print(f"Model loaded from MinIO: s3://{bucket}/{model_name}/{version}/")
+                return model, metadata
+                
+            except ClientError as e:
+                print(f"Error loading model: {e}")
+                raise FileNotFoundError(f"Model not found: s3://{bucket}/{model_name}/{version}/")
     
     def list_available_models():
-        """List all available models in storage"""
+        """List all available models in MinIO storage"""
+        s3_client = get_s3_client()
+        bucket = os.getenv('MINIO_BUCKET', 'models')
         models = []
-        model_dir = Path(MODEL_DIR)
         
-        if not model_dir.exists():
+        try:
+            # List objects in bucket
+            response = s3_client.list_objects_v2(Bucket=bucket)
+            
+            if 'Contents' not in response:
+                return models
+            
+            # Group by model name and version
+            model_versions = {}
+            for obj in response['Contents']:
+                key = obj['Key']
+                if key.endswith('/metadata.json'):
+                    parts = key.split('/')
+                    if len(parts) >= 3:
+                        model_name = parts[0]
+                        version = parts[1]
+                        
+                        if model_name not in model_versions:
+                            model_versions[model_name] = []
+                        model_versions[model_name].append(version)
+            
+            # Get metadata for each model version
+            for model_name, versions in model_versions.items():
+                for version in versions:
+                    try:
+                        metadata_key = f"{model_name}/{version}/metadata.json"
+                        
+                        with tempfile.NamedTemporaryFile(mode='w+', suffix='.json') as temp_file:
+                            s3_client.download_file(bucket, metadata_key, temp_file.name)
+                            
+                            with open(temp_file.name, 'r') as f:
+                                metadata = json.load(f)
+                            
+                            models.append({
+                                "name": model_name,
+                                "version": version,
+                                "path": f"s3://{bucket}/{model_name}/{version}/",
+                                "metadata": metadata
+                            })
+                    except ClientError:
+                        continue
+            
             return models
-        
-        for model_name_dir in model_dir.iterdir():
-            if model_name_dir.is_dir():
-                for version_dir in model_name_dir.iterdir():
-                    if version_dir.is_dir() and (version_dir / "metadata.json").exists():
-                        with open(version_dir / "metadata.json", "r") as f:
-                            metadata = json.load(f)
-                        models.append({
-                            "name": model_name_dir.name,
-                            "version": version_dir.name,
-                            "path": str(version_dir),
-                            "metadata": metadata
-                        })
-        
-        return models
+            
+        except ClientError as e:
+            print(f"Error listing models: {e}")
+            return []
     
     if __name__ == "__main__":
-        print("Available models:")
+        print("Available models in MinIO:")
         for model in list_available_models():
             print(f"  {model['name']}:{model['version']} - {model['path']}")
   
   setup_models.sh: |
     #!/bin/bash
-    # Setup script for model directory
+    # Setup script for MinIO model storage
     
-    MODEL_DIR="/models"
+    echo "Setting up MinIO model storage..."
     
-    echo "Setting up model directory: $MODEL_DIR"
-    mkdir -p "$MODEL_DIR"
+    # Install MinIO client if not present
+    if ! command -v mc &> /dev/null; then
+        echo "Installing MinIO client..."
+        curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+        chmod +x /usr/local/bin/mc
+    fi
     
-    # Create directory structure
-    mkdir -p "$MODEL_DIR/nimbusguard-dqn/latest"
-    mkdir -p "$MODEL_DIR/nimbusguard-dqn/v1.0"
-    mkdir -p "$MODEL_DIR/checkpoints"
+    # Configure MinIO client
+    MINIO_ENDPOINT=${MINIO_ENDPOINT:-"minio-api.minio.svc.cluster.local:9000"}
+    MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-"nimbusguard"}
+    MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-"nimbusguard123"}
+    MINIO_BUCKET=${MINIO_BUCKET:-"models"}
     
-    # Set permissions
-    chmod -R 755 "$MODEL_DIR"
+    echo "Configuring MinIO client..."
+    mc alias set minio http://$MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
     
-    echo "Model directory structure created:"
-    find "$MODEL_DIR" -type d
+    # Create bucket if it doesn't exist
+    echo "Creating models bucket..."
+    mc mb minio/$MINIO_BUCKET --ignore-existing
     
-    echo "Ready to store models in $MODEL_DIR" 
+    # Create directory structure in bucket
+    echo "Setting up model directory structure..."
+    echo '{"info": "NimbusGuard DQN models directory"}' | mc pipe minio/$MINIO_BUCKET/nimbusguard-dqn/.info
+    echo '{"info": "Model checkpoints directory"}' | mc pipe minio/$MINIO_BUCKET/checkpoints/.info
+    
+    echo "MinIO model storage setup complete!"
+    echo "Available buckets:"
+    mc ls minio/
+    
+    echo "Models bucket structure:"
+    mc ls minio/$MINIO_BUCKET --recursive 
