@@ -7,8 +7,6 @@ resources:
 - model-storage.yaml
 - continuous-training.yaml
 
-namespace: nimbusguard-serving
-
 labels:
 - includeSelectors: true
   includeTemplates: true

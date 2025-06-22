@@ -5,7 +5,7 @@ metadata:
   namespace: nimbusguard-experiments
 spec:
   algorithm:
-    algorithmName: bayesian-optimization
+    algorithmName: bayesianoptimization
     algorithmSettings:
     - name: random_state
       value: "42"

@@ -32,6 +32,7 @@ metadata:
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
     app.kubernetes.io/component: model-serving
+    katib.kubeflow.org/metrics-collector-injection: enabled
 ---
 # Experiments Namespace  
 apiVersion: v1
@@ -43,3 +44,4 @@ metadata:
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
     app.kubernetes.io/component: experiments
+    katib.kubeflow.org/metrics-collector-injection: enabled

@@ -462,18 +462,4 @@ data:
     if __name__ == "__main__":
         trainer = ContinuousTrainer()
         trainer.run_continuous_training()
----
-# Service Monitor for training metrics
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: continuous-training-metrics
-  namespace: nimbusguard-serving
-spec:
-  selector:
-    matchLabels:
-      app: continuous-training
-  endpoints:
-  - port: metrics
-    interval: 30s
-    path: /metrics 
+ 
