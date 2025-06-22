@@ -1,0 +1,280 @@
+apiVersion: kubeflow.org/v1beta1
+kind: Experiment
+metadata:
+  name: nimbusguard-dqn-hyperparameter-tuning
+  namespace: nimbusguard-experiments
+spec:
+  algorithm:
+    algorithmName: bayesian-optimization
+    algorithmSettings:
+    - name: random_state
+      value: "42"
+  objective:
+    type: minimize
+    objectiveMetricName: final_loss
+    additionalMetricNames:
+    - average_loss
+  parameters:
+  - name: learning_rate
+    parameterType: double
+    feasibleSpace:
+      min: "1e-5"
+      max: "1e-2"
+  - name: gamma
+    parameterType: double
+    feasibleSpace:
+      min: "0.9"
+      max: "0.999"
+  - name: epsilon_decay
+    parameterType: double
+    feasibleSpace:
+      min: "0.99"
+      max: "0.9999"
+  - name: batch_size
+    parameterType: int
+    feasibleSpace:
+      min: "16"
+      max: "128"
+      step: "16"
+  - name: epochs
+    parameterType: int
+    feasibleSpace:
+      min: "50"
+      max: "200"
+      step: "25"
+  parallelTrialCount: 3
+  maxTrialCount: 20
+  maxFailedTrialCount: 5
+  trialTemplate:
+    primaryContainerName: training-container
+    trialParameters:
+    - name: learning_rate
+      description: Learning rate for DQN training
+      reference: learning_rate
+    - name: gamma
+      description: Discount factor for Q-learning
+      reference: gamma
+    - name: epsilon_decay
+      description: Epsilon decay rate
+      reference: epsilon_decay
+    - name: batch_size
+      description: Training batch size
+      reference: batch_size
+    - name: epochs
+      description: Number of training epochs
+      reference: epochs
+    trialSpec:
+      apiVersion: batch/v1
+      kind: Job
+      spec:
+        template:
+          metadata:
+            annotations:
+              sidecar.istio.io/inject: "false"
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: training-container
+              image: nimbusguard/kubeflow:latest
+              command:
+              - python
+              - /app/katib_training.py
+              args:
+              - --learning-rate=${trialParameters.learning_rate}
+              - --gamma=${trialParameters.gamma}
+              - --epsilon-decay=${trialParameters.epsilon_decay}
+              - --batch-size=${trialParameters.batch_size}
+              - --epochs=${trialParameters.epochs}
+              - --metrics-path=/tmp/metrics.log
+              env:
+              - name: PROMETHEUS_ENDPOINT
+                value: "http://prometheus.nimbusguard.svc.cluster.local:9090"
+              - name: COLLECTION_HOURS
+                value: "12"  # Shorter for hyperparameter tuning
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: 2
+                  memory: 4Gi
+              volumeMounts:
+              - name: metrics-volume
+                mountPath: /tmp
+            volumes:
+            - name: metrics-volume
+              emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: katib-training-script
+  namespace: nimbusguard-experiments
+data:
+  katib_training.py: |
+    #!/usr/bin/env python3
+    """
+    Katib-compatible training script for NimbusGuard DQN
+    This script is called by Katib trials with different hyperparameters
+    """
+    
+    import argparse
+    import json
+    import logging
+    import os
+    import sys
+    from pathlib import Path
+    
+    # Set up logging to write metrics that Katib can read
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler('/tmp/training.log')
+        ]
+    )
+    logger = logging.getLogger(__name__)
+    
+    def parse_args():
+        parser = argparse.ArgumentParser(description='DQN Training for Katib')
+        parser.add_argument('--learning-rate', type=float, required=True)
+        parser.add_argument('--gamma', type=float, required=True)
+        parser.add_argument('--epsilon-decay', type=float, required=True)
+        parser.add_argument('--batch-size', type=int, required=True)
+        parser.add_argument('--epochs', type=int, required=True)
+        parser.add_argument('--metrics-path', type=str, default='/tmp/metrics.log')
+        return parser.parse_args()
+    
+    def collect_training_data():
+        """Simplified data collection for Katib trials"""
+        import numpy as np
+        
+        # For Katib trials, use simulated data to speed up experiments
+        # In production, you'd use real Prometheus data
+        n_samples = 1000
+        state_dim = 11
+        action_dim = 5
+        
+        states = np.random.randn(n_samples, state_dim)
+        actions = np.random.randint(0, action_dim, n_samples)
+        rewards = np.random.uniform(-1, 1, n_samples)
+        
+        return {
+            'states': states.tolist(),
+            'actions': actions.tolist(),
+            'rewards': rewards.tolist()
+        }
+    
+    def train_model(data, hyperparams):
+        """Train DQN model with given hyperparameters"""
+        import torch
+        import torch.nn as nn
+        import torch.optim as optim
+        import numpy as np
+        
+        class SimpleDQN(nn.Module):
+            def __init__(self, state_dim=11, action_dim=5, hidden_dim=128):
+                super().__init__()
+                self.network = nn.Sequential(
+                    nn.Linear(state_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim, action_dim)
+                )
+            
+            def forward(self, x):
+                return self.network(x)
+        
+        # Prepare data
+        states = np.array(data['states'])
+        actions = np.array(data['actions'])
+        rewards = np.array(data['rewards'])
+        
+        # Initialize model
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model = SimpleDQN().to(device)
+        optimizer = optim.Adam(model.parameters(), lr=hyperparams['learning_rate'])
+        criterion = nn.MSELoss()
+        
+        # Training loop
+        losses = []
+        for epoch in range(hyperparams['epochs']):
+            # Batch selection
+            batch_size = min(hyperparams['batch_size'], len(states))
+            indices = np.random.choice(len(states), batch_size, replace=False)
+            
+            batch_states = torch.FloatTensor(states[indices]).to(device)
+            batch_actions = torch.LongTensor(actions[indices]).to(device)
+            batch_rewards = torch.FloatTensor(rewards[indices]).to(device)
+            
+            # Forward pass
+            q_values = model(batch_states)
+            action_q_values = q_values.gather(1, batch_actions.unsqueeze(1)).squeeze()
+            
+            # Loss calculation (simplified for Katib)
+            loss = criterion(action_q_values, batch_rewards)
+            
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            losses.append(loss.item())
+            
+            # Log progress every 10 epochs
+            if epoch % 10 == 0:
+                logger.info(f"Epoch {epoch}/{hyperparams['epochs']}, Loss: {loss.item():.4f}")
+        
+        return {
+            'final_loss': losses[-1],
+            'average_loss': np.mean(losses),
+            'min_loss': np.min(losses),
+            'convergence_epoch': np.argmin(losses)
+        }
+    
+    def write_metrics(metrics, metrics_path):
+        """Write metrics in format that Katib can parse"""
+        # Katib expects metrics in specific format
+        with open(metrics_path, 'w') as f:
+            for metric_name, value in metrics.items():
+                f.write(f"{metric_name}={value}\n")
+                
+        # Also log to stdout for Katib to capture
+        for metric_name, value in metrics.items():
+            print(f"metric={metric_name} value={value}")
+            logger.info(f"Metric {metric_name}: {value}")
+    
+    def main():
+        args = parse_args()
+        
+        logger.info("Starting Katib DQN training trial")
+        logger.info(f"Hyperparameters: {vars(args)}")
+        
+        # Collect training data
+        logger.info("Collecting training data...")
+        data = collect_training_data()
+        logger.info(f"Collected {len(data['states'])} training samples")
+        
+        # Prepare hyperparameters
+        hyperparams = {
+            'learning_rate': args.learning_rate,
+            'gamma': args.gamma,
+            'epsilon_decay': args.epsilon_decay,
+            'batch_size': args.batch_size,
+            'epochs': args.epochs
+        }
+        
+        # Train model
+        logger.info("Training model...")
+        metrics = train_model(data, hyperparams)
+        
+        # Write metrics for Katib
+        write_metrics(metrics, args.metrics_path)
+        
+        logger.info("Training completed successfully")
+        logger.info(f"Final metrics: {metrics}")
+    
+    if __name__ == "__main__":
+        main()

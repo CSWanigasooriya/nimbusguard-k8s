@@ -79,27 +79,31 @@ spec:
 
                 ml_config:
                   type: object
+                  required:
+                    - kserve_endpoint
                   properties:
-                    training_mode:
-                      type: boolean
-                      description: "Enable online learning and model updates"
-                      default: false
-                    model_path:
+                    # KServe model serving (required)
+                    kserve_endpoint:
                       type: string
-                      description: "Path to the pre-trained DQN model"
-                      default: "/models/nimbusguard_dqn.pth"
+                      description: "KServe inference endpoint URL (required)"
+                      pattern: "^https?://.*"
+                    model_name:
+                      type: string
+                      description: "Model name for KServe inference"
+                      default: "nimbusguard-dqn"
+                    # Decision making configuration
+                    confidence_threshold:
+                      type: number
+                      description: "Minimum confidence required for the agent to take a scaling action. If below this, no action will be taken."
+                      minimum: 0.0
+                      maximum: 1.0
+                      default: 0.7
                     epsilon_start:
                       type: number
                       description: "Initial exploration rate for the DQN agent"
                       minimum: 0.0
                       maximum: 1.0
                       default: 0.1
-                    confidence_threshold:
-                      type: number
-                      description: "Minimum confidence required for the agent to take a scaling action. If below this, no action will be taken."
-                      minimum: 0.0
-                      maximum: 1.0
-                      default: 0.3
                     save_frequency:
                       type: integer
                       description: "Frequency (in training steps) at which to save the DQN model during training"

@@ -110,42 +110,15 @@ spec:
             failureThreshold: 30
 
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: consumer-workload
-  namespace: nimbusguard
-  labels:
-    app: consumer-workload
-    version: v1
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-    prometheus.io/path: "/metrics"
-    nimbusguard.io/dqn-target: "true"
-spec:
-  selector:
-    app: consumer-workload
-    app.kubernetes.io/component: operator
-    app.kubernetes.io/name: nimbusguard
-    app.kubernetes.io/part-of: nimbusguard
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
-      protocol: TCP
-  type: ClusterIP
-
----
-# IntelligentScaling resource
+# KServe-Only IntelligentScaling Resource
 apiVersion: nimbusguard.io/v1alpha1
 kind: IntelligentScaling
 metadata:
-  name: consumer-workload-dqn
+  name: consumer-workload-kserve-only
   namespace: nimbusguard
   labels:
     app: consumer-workload
-    autoscaler: dqn
+    autoscaler: kserve-dqn
 spec:
   namespace: nimbusguard
   target_labels:
@@ -154,23 +127,25 @@ spec:
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
   minReplicas: 2
-  maxReplicas: 20
+  maxReplicas: 8  # Reduced for single-node cluster
 
   metrics_config:
     prometheus_url: "http://prometheus.monitoring.svc.cluster.local:9090"
     tempo_url: "http://tempo.monitoring.svc.cluster.local:3200"
     loki_url: "http://loki.monitoring.svc.cluster.local:3100"
-
-
     feature_collection:
       lookback_minutes: 5
 
+  # KServe-only ML configuration
   ml_config:
-    training_mode: true
-    model_path: "/models/consumer-workload-dqn.pth"
-    epsilon_start: 0.1
-    confidence_threshold: 0.3
-    save_frequency: 10
+    # Required KServe endpoint
+    kserve_endpoint: "http://nimbusguard-dqn-model-predictor.nimbusguard-serving.svc.cluster.local"
+    
+    # Model name in KServe
+    model_name: "nimbusguard-dqn"
+    
+    # Production confidence threshold (higher = more conservative)
+    confidence_threshold: 0.7
 
   evaluation_config:
     evaluation_interval: 30

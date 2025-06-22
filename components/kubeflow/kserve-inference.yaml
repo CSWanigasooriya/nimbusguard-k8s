@@ -1,0 +1,202 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: nimbusguard-dqn-model
+  namespace: nimbusguard-serving
+  annotations:
+    serving.kubeflow.org/deploymentMode: RawDeployment
+    serving.kserve.io/disable-model-car: "true"
+spec:
+  predictor:
+    containers:
+    - name: kserve-container
+      image: nimbusguard/kubeflow:latest
+      env:
+      - name: MODEL_NAME
+        value: "nimbusguard-dqn"
+      - name: STATE_DIM
+        value: "11"
+      - name: ACTION_DIM
+        value: "5"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          cpu: 1
+          memory: 1Gi
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-transformer-code
+  namespace: nimbusguard-serving
+data:
+  transformer.py: |
+    """
+    Model transformer for NimbusGuard DQN inference
+    Transforms Kubernetes cluster state to DQN input format
+    """
+    
+    import json
+    import logging
+    import numpy as np
+    from typing import Dict, List, Any
+    import asyncio
+    import aiohttp
+    
+    logger = logging.getLogger(__name__)
+    
+    class NimbusGuardTransformer:
+        """Transformer for converting cluster state to DQN input"""
+        
+        def __init__(self):
+            self.state_dim = 11
+            self.action_dim = 5
+            self.prometheus_endpoint = "http://prometheus.nimbusguard.svc.cluster.local:9090"
+        
+        async def transform_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+            """Transform incoming request to model input format"""
+            try:
+                # Extract cluster state from request
+                if 'cluster_state' in request_data:
+                    cluster_state = request_data['cluster_state']
+                    state_vector = self._create_state_vector(cluster_state)
+                else:
+                    # Fallback: collect current cluster state
+                    state_vector = await self._collect_current_state()
+                
+                # Format for PyTorch model
+                model_input = {
+                    "instances": [state_vector]
+                }
+                
+                logger.info(f"Transformed request: {len(state_vector)} features")
+                return model_input
+                
+            except Exception as e:
+                logger.error(f"Transform error: {e}")
+                # Return default state if transformation fails
+                return {"instances": [[0.0] * self.state_dim]}
+        
+        async def transform_response(self, model_output: Dict[str, Any]) -> Dict[str, Any]:
+            """Transform model output to NimbusGuard action format"""
+            try:
+                # Extract Q-values from model output
+                predictions = model_output.get('predictions', [[0] * self.action_dim])
+                q_values = predictions[0]
+                
+                # Find best action
+                best_action = int(np.argmax(q_values))
+                
+                # Map to NimbusGuard action
+                action_mapping = {
+                    0: "SCALE_DOWN_2",
+                    1: "SCALE_DOWN_1", 
+                    2: "NO_ACTION",
+                    3: "SCALE_UP_1",
+                    4: "SCALE_UP_2"
+                }
+                
+                response = {
+                    "action": action_mapping.get(best_action, "NO_ACTION"),
+                    "action_index": best_action,
+                    "q_values": q_values,
+                    "confidence": float(max(q_values)),
+                    "timestamp": asyncio.get_event_loop().time()
+                }
+                
+                logger.info(f"Predicted action: {response['action']} (confidence: {response['confidence']:.3f})")
+                return response
+                
+            except Exception as e:
+                logger.error(f"Response transform error: {e}")
+                return {
+                    "action": "NO_ACTION",
+                    "error": str(e)
+                }
+        
+        def _create_state_vector(self, cluster_state: Dict[str, Any]) -> List[float]:
+            """Create DQN state vector from cluster state"""
+            try:
+                state_vector = [
+                    float(cluster_state.get('cpu_utilization', 0.0)),
+                    float(cluster_state.get('memory_utilization', 0.0)),
+                    float(cluster_state.get('network_io_rate', 0.0)),
+                    float(cluster_state.get('request_rate', 0.0)),
+                    float(cluster_state.get('pod_count', 1.0)),
+                    float(cluster_state.get('response_time_p95', 0.0)),
+                    float(cluster_state.get('error_rate', 0.0)),
+                    float(cluster_state.get('queue_depth', 0.0)),
+                    float(cluster_state.get('cpu_throttling', 0.0)),
+                    float(cluster_state.get('memory_pressure', 0.0)),
+                    float(cluster_state.get('node_utilization', 0.0))
+                ]
+                
+                # Normalize values to [0, 1] range
+                state_vector = [min(max(val, 0.0), 1.0) for val in state_vector]
+                
+                return state_vector
+                
+            except Exception as e:
+                logger.error(f"State vector creation error: {e}")
+                return [0.0] * self.state_dim
+        
+        async def _collect_current_state(self) -> List[float]:
+            """Collect current cluster state from Prometheus"""
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # Collect key metrics
+                    metrics = {}
+                    
+                    queries = {
+                        'cpu_utilization': 'avg(rate(container_cpu_usage_seconds_total[5m]))',
+                        'memory_utilization': 'avg(container_memory_working_set_bytes) / avg(container_spec_memory_limit_bytes)',
+                        'pod_count': 'count(kube_pod_info{namespace="nimbusguard"})',
+                        'request_rate': 'rate(http_requests_total[5m])',
+                        'response_time_p95': 'histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))'
+                    }
+                    
+                    for metric_name, query in queries.items():
+                        try:
+                            async with session.get(
+                                f"{self.prometheus_endpoint}/api/v1/query",
+                                params={'query': query}
+                            ) as response:
+                                data = await response.json()
+                                result = data.get('data', {}).get('result', [])
+                                if result:
+                                    metrics[metric_name] = float(result[0]['value'][1])
+                                else:
+                                    metrics[metric_name] = 0.0
+                        except Exception as e:
+                            logger.warning(f"Failed to collect {metric_name}: {e}")
+                            metrics[metric_name] = 0.0
+                    
+                    return self._create_state_vector(metrics)
+                    
+            except Exception as e:
+                logger.error(f"State collection error: {e}")
+                return [0.0] * self.state_dim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nimbusguard-dqn-model-service
+  namespace: nimbusguard-serving
+spec:
+  selector:
+    app: nimbusguard-dqn-model
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: grpc
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  type: ClusterIP

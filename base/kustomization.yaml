@@ -2,31 +2,31 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - namespaces.yaml
-  - crd.yaml
+- namespaces.yaml
+- crd.yaml
 
 labels:
-  - includeSelectors: true
-    includeTemplates: true
-    pairs:
-      app.kubernetes.io/name: nimbusguard
-      app.kubernetes.io/part-of: nimbusguard
-      app.kubernetes.io/component: base
+- includeSelectors: true
+  includeTemplates: true
+  pairs:
+    app.kubernetes.io/component: base
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard
 
 patches:
-  - target:
-      kind: Deployment
-      name: nimbusguard-operator
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: "128Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: "100m"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "512Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: "500m"
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "128Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "100m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "512Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "500m"
+  target:
+    kind: Deployment
+    name: nimbusguard-operator

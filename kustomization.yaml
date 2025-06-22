@@ -3,18 +3,19 @@ kind: Kustomization
 
 # Include base resources (namespaces, CRDs)
 resources:
-  - base
-  - components
-  - monitoring
+- base
+- components
+- monitoring
 
 # Apply components in order: base first (namespaces), then components, then monitoring
-patchesStrategicMerge: []
 
 # Common labels for all resources
-commonLabels:
-  app.kubernetes.io/managed-by: kustomize
-  app.kubernetes.io/part-of: nimbusguard-platform
 
 # Common annotations
 commonAnnotations:
-  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/version: 1.0.0
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/part-of: nimbusguard-platform

@@ -57,6 +57,10 @@ metadata:
 data:
   LOG_LEVEL: "INFO"
   METRICS_PORT: "8090"
+  # KServe endpoint for Kubeflow integration - updated to working endpoint
+  KSERVE_ENDPOINT: "http://nimbusguard-dqn-model-predictor.nimbusguard-serving.svc.cluster.local"
+  # Whether to fallback to local model if KServe fails
+  KUBEFLOW_FALLBACK_TO_LOCAL: "true"
 ---
 # Note: PVC removed - using hostPath volume for local development
 ---
@@ -115,6 +119,17 @@ spec:
                   name: operator-secrets
                   key: openai_api_key
                   optional: true
+            # KServe Integration for Kubeflow ML Pipeline
+            - name: KSERVE_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: operator-config
+                  key: KSERVE_ENDPOINT
+            - name: KUBEFLOW_FALLBACK_TO_LOCAL
+              valueFrom:
+                configMapKeyRef:
+                  name: operator-config
+                  key: KUBEFLOW_FALLBACK_TO_LOCAL
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -126,13 +141,6 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-          volumeMounts:
-            - name: model-storage
-              mountPath: /models
-      volumes:
-        - name: model-storage
-          hostPath:
-            path: ${NIMBUSGUARD_PROJECT_PATH}/models
 ---
 # Operator Service
 apiVersion: v1
