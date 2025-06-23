@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/consumer
+
+namespace: nimbusguard-dev
+
+namePrefix: dev-
+
+commonLabels:
+  environment: development
+
+patchesStrategicMerge:
+  # Add development-specific patches here
+  # - replica-patch.yaml
+
+images:
+  # Override images for development
+  # - name: nimbusguard-consumer
+  #   newTag: dev 
