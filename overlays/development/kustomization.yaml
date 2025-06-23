@@ -7,12 +7,12 @@ resources:
 components:
   - ../../components/consumer
 
-namespace: nimbusguard-dev
+namespace: nimbusguard
 
-namePrefix: dev-
-
-commonLabels:
-  environment: development
+labels:
+  - pairs:
+      app: nimbusguard
+      environment: development
 
 patchesStrategicMerge:
   # Add development-specific patches here

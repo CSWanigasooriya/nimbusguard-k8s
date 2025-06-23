@@ -2,12 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # Add your base resources here
+  - namespace.yaml
   # - deployment.yaml
   # - service.yaml
-  # - configmap.yaml
 
-commonLabels:
-  app: nimbusguard
+labels:
+  - pairs:
+      app: nimbusguard
 
 namespace: nimbusguard 
