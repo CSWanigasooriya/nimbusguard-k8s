@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - prometheus.yaml
+  - alloy.yaml
+  - prometheus-service.yaml
+  - alloy-service.yaml
+  - prometheus-rbac.yaml
+  - alloy-rbac.yaml
+  # LGTM Stack components
+  - loki.yaml
+  - tempo.yaml
+  - grafana.yaml
+  # Auto-instrumentation (optional - requires OTel operator CRDs)
+  # - otel-operator.yaml
+
+labels:
+  - pairs:
+      component: monitoring 

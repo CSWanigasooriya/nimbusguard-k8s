@@ -6,6 +6,7 @@ resources:
 
 components:
   - ../../components/consumer
+  - ../../components/monitoring
 
 namespace: nimbusguard
 
