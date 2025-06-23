@@ -1,0 +1,449 @@
+---
+# Create the missing kubeflow-edit ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeflow-edit
+  labels:
+    app.kubernetes.io/name: kubeflow
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["kubeflow.org"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["serving.kserve.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["argoproj.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# NimbusGuard ML Development Workspace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: ml-workspace
+    app.kubernetes.io/part-of: nimbusguard-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ml-developer
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: serviceaccount
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nimbusguard-ml-developer-access
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: ml-developer
+  namespace: nimbusguard-ml-workspace
+roleRef:
+  kind: ClusterRole
+  name: kubeflow-edit
+  apiGroup: rbac.authorization.k8s.io
+---
+# NimbusGuard ML Development Environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-development-environment
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app: ml-development-environment
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: ml-development
+    app.kubernetes.io/part-of: nimbusguard-platform
+    app.kubernetes.io/version: "1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-development-environment
+      app.kubernetes.io/name: nimbusguard
+      app.kubernetes.io/component: ml-development
+  template:
+    metadata:
+      labels:
+        app: ml-development-environment
+        app.kubernetes.io/name: nimbusguard
+        app.kubernetes.io/component: ml-development
+        app.kubernetes.io/part-of: nimbusguard-platform
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    spec:
+      serviceAccountName: ml-developer
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+      containers:
+      - name: jupyter-lab
+        image: jupyter/tensorflow-notebook:lab-3.4.4
+        workingDir: /home/jovyan
+        command: ["start-notebook.sh"]
+        args:
+        - --ServerApp.token=''
+        - --ServerApp.password=''
+        - --ServerApp.allow_root=False
+        - --ServerApp.base_url=/
+        - --ServerApp.disable_check_xsrf=True
+        - --LabApp.check_for_updates_class='jupyterlab.handlers.NullCheckForUpdatesHandler'
+        env:
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+        - name: GRANT_SUDO
+          value: "yes"
+        - name: CHOWN_HOME
+          value: "yes"
+        - name: CHOWN_HOME_OPTS
+          value: "-R"
+        # Personalized environment for Chamath
+        - name: DISPLAY_NAME
+          value: "Chamath Wanigasooriya"
+        - name: GIT_AUTHOR_NAME
+          value: "Chamath Wanigasooriya"
+        - name: GIT_AUTHOR_EMAIL
+          value: "chamath@nimbusguard.dev"
+        - name: GIT_COMMITTER_NAME
+          value: "Chamath Wanigasooriya"
+        - name: GIT_COMMITTER_EMAIL
+          value: "chamath@nimbusguard.dev"
+        - name: JUPYTER_USER_NAME
+          value: "Chamath Wanigasooriya"
+        - name: USER_DISPLAY_NAME
+          value: "Chamath"
+        # Production service endpoints
+        - name: MINIO_ENDPOINT
+          value: "minio-api.minio.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: access-key
+              optional: true
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secret-key
+              optional: true
+        - name: PROMETHEUS_ENDPOINT
+          value: "http://prometheus.monitoring.svc.cluster.local:9090"
+        - name: KSERVE_INFERENCE_ENDPOINT
+          value: "http://nimbusguard-dqn-model.nimbusguard-serving.svc.cluster.local/v1/models/nimbusguard-dqn:predict"
+        - name: OPERATOR_API_ENDPOINT
+          value: "http://nimbusguard-operator.nimbusguard.svc.cluster.local:9080"
+        ports:
+        - containerPort: 8888
+          name: notebook-port
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi
+          limits:
+            cpu: 4
+            memory: 8Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+        volumeMounts:
+        - name: workspace-storage
+          mountPath: /home/jovyan
+        - name: shared-data
+          mountPath: /home/jovyan/shared
+        - name: chamath-profile
+          mountPath: /home/jovyan/.profile
+          subPath: profile
+        livenessProbe:
+          httpGet:
+            path: /api
+            port: 8888
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api
+            port: 8888
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+      volumes:
+      - name: workspace-storage
+        persistentVolumeClaim:
+          claimName: ml-workspace-storage
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: ml-shared-data
+      - name: chamath-profile
+        configMap:
+          name: chamath-workspace-config
+---
+# Primary workspace storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-workspace-storage
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: ml-workspace
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+# Shared data storage for team collaboration
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-shared-data
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: shared-storage
+    app.kubernetes.io/part-of: ml-workspace
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+---
+# Service for ML development environment
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-development-environment
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app: ml-development-environment
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: ml-development
+spec:
+  ports:
+  - name: jupyter-lab
+    port: 8888
+    protocol: TCP
+    targetPort: 8888
+  selector:
+    app: ml-development-environment
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: ml-development
+  type: ClusterIP
+---
+# MinIO credentials secret (placeholder - should be managed by external secret management)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: credentials
+type: Opaque
+data:
+  # access-key: nimbusguard (base64 encoded)
+  access-key: bmltYnVzZ3VhcmQ=
+  # secret-key: nimbusguard123 (base64 encoded)
+  secret-key: bmltYnVzZ3VhcmQxMjM=
+---
+# Network policy for ML workspace security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ml-workspace-network-policy
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: ml-development-environment
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: nimbusguard
+    ports:
+    - protocol: TCP
+      port: 8888
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: minio
+    ports:
+    - protocol: TCP
+      port: 9000
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: nimbusguard-serving
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+---
+# Personalized workspace configuration for Chamath
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chamath-workspace-config
+  namespace: nimbusguard-ml-workspace
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: workspace-config
+data:
+  profile: |
+    # Chamath's NimbusGuard ML Development Environment
+    echo "🚀 Welcome to NimbusGuard ML Development Environment"
+    echo "👨‍💻 User: Chamath Wanigasooriya"
+    echo "🏢 Organization: NimbusGuard Platform"
+    echo "📁 Workspace: /home/jovyan (personal workspace)"
+    echo "📊 Shared Data: /home/jovyan/shared"
+    echo ""
+    echo "🔗 Available Services:"
+    echo "  • MinIO Storage: $MINIO_ENDPOINT"
+    echo "  • Prometheus: $PROMETHEUS_ENDPOINT" 
+    echo "  • KServe Inference: Available"
+    echo "  • NimbusGuard Operator: $OPERATOR_API_ENDPOINT"
+    echo ""
+    
+    # Set Git configuration for Chamath
+    git config --global user.name "Chamath Wanigasooriya"
+    git config --global user.email "chamath@nimbusguard.dev"
+    git config --global init.defaultBranch main
+    
+    # Create helpful aliases
+    alias ll='ls -la'
+    alias la='ls -A'
+    alias l='ls -CF'
+    alias ..='cd ..'
+    alias ...='cd ../..'
+    alias grep='grep --color=auto'
+    alias chamath-env='echo "ML Development Environment for Chamath Wanigasooriya"'
+    
+    # Python environment setup
+    export PYTHONPATH="/home/jovyan:$PYTHONPATH"
+    
+    # Jupyter customization
+    export JUPYTER_USER_NAME="Chamath Wanigasooriya"
+    export USER_DISPLAY_NAME="Chamath"
+    
+    # Create workspace structure
+    mkdir -p /home/jovyan/projects/{ml-models,datasets,experiments,notebooks}
+    mkdir -p /home/jovyan/projects/nimbusguard/{training,inference,monitoring}
+    
+    # Create welcome notebook if it doesn't exist
+    if [ ! -f "/home/jovyan/Welcome-Chamath.ipynb" ]; then
+      cat > "/home/jovyan/Welcome-Chamath.ipynb" << 'EOF'
+    {
+     "cells": [
+      {
+       "cell_type": "markdown",
+       "metadata": {},
+       "source": [
+        "# NimbusGuard ML Development Environment\n",
+        "\n",
+        "**Welcome, Chamath Wanigasooriya!**\n",
+        "\n",
+        "This is your personalized ML development workspace for the NimbusGuard intelligent scaling platform.\n",
+        "\n",
+        "## Environment Overview\n",
+        "- **Workspace**: Personal development environment\n",
+        "- **Platform**: NimbusGuard Kubernetes Auto-Scaling\n",
+        "- **Focus**: Deep Q-Network (DQN) model development and deployment\n",
+        "\n",
+        "## Quick Start\n",
+        "1. Explore the integrated services (MinIO, Prometheus, KServe)\n",
+        "2. Develop and train ML models for intelligent scaling\n",
+        "3. Deploy models to production via KServe\n",
+        "4. Monitor and optimize scaling decisions\n",
+        "\n",
+        "## Directory Structure\n",
+        "- `projects/ml-models/` - Model development\n",
+        "- `projects/datasets/` - Training data\n",
+        "- `projects/experiments/` - ML experiments\n",
+        "- `projects/nimbusguard/` - Platform-specific work\n",
+        "- `shared/` - Shared team resources"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "# Quick environment check\n",
+        "import os\n",
+        "import sys\n",
+        "print(f'🐍 Python: {sys.version}')\n",
+        "print(f'👨‍💻 Environment: {os.getenv(\"USER_DISPLAY_NAME\", \"Development\")}')\n",
+        "print(f'🚀 NimbusGuard ML Platform Ready!')"
+       ]
+      }
+     ],
+     "metadata": {
+      "kernelspec": {
+       "display_name": "Python 3",
+       "language": "python",
+       "name": "python3"
+      },
+      "language_info": {
+       "name": "python",
+       "version": "3.8.8"
+      }
+     },
+     "nbformat": 4,
+     "nbformat_minor": 4
+    }
+    EOF
+    fi 

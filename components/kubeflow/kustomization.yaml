@@ -3,9 +3,11 @@ kind: Kustomization
 
 resources:
 - katib-experiment.yaml
+- kserve-certificates.yaml
 - kserve-inference.yaml
 - model-storage.yaml
 - continuous-training.yaml
+- notebooks.yaml
 
 labels:
 - includeSelectors: true

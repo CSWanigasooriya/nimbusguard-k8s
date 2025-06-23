@@ -32,7 +32,6 @@ metadata:
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
     app.kubernetes.io/component: model-serving
-    katib.kubeflow.org/metrics-collector-injection: enabled
 ---
 # Experiments Namespace  
 apiVersion: v1
@@ -44,4 +43,60 @@ metadata:
     app.kubernetes.io/name: nimbusguard
     app.kubernetes.io/part-of: nimbusguard
     app.kubernetes.io/component: experiments
-    katib.kubeflow.org/metrics-collector-injection: enabled
+---
+# Kubeflow Core Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflow
+  labels:
+    name: kubeflow
+    app.kubernetes.io/name: kubeflow
+    app.kubernetes.io/part-of: kubeflow
+    app.kubernetes.io/component: core
+    control-plane: kubeflow
+---
+# KServe Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kserve
+  labels:
+    name: kserve
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/part-of: kubeflow
+    app.kubernetes.io/component: model-serving
+    control-plane: kserve-controller-manager
+---
+# MinIO Object Storage Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio
+  labels:
+    name: minio
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: nimbusguard-storage
+    app.kubernetes.io/component: object-storage
+---
+# NimbusGuard ML Workspace Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nimbusguard-ml-workspace
+  labels:
+    name: nimbusguard-ml-workspace
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/part-of: nimbusguard-platform
+    app.kubernetes.io/component: ml-workspace
+---
+# KEDA Namespace (for traditional scaling)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keda
+  labels:
+    name: keda
+    app.kubernetes.io/name: keda
+    app.kubernetes.io/part-of: keda
+    app.kubernetes.io/component: operator

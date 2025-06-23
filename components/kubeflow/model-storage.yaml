@@ -1,4 +1,24 @@
 ---
+# Persistent Volume Claim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nimbusguard-model-pvc
+  namespace: nimbusguard-serving
+  labels:
+    app.kubernetes.io/name: nimbusguard
+    app.kubernetes.io/component: model-storage
+    app.kubernetes.io/part-of: kubeflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # Use default storage class
+  # storageClassName: ""
+
+---
 # MinIO Secret for model storage access
 apiVersion: v1
 kind: Secret

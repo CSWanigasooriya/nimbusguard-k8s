@@ -1,0 +1,67 @@
+---
+# KServe Certificates Configuration
+# NOTE: If cert-manager webhook is having timeout issues, apply this manually:
+# kubectl apply -f kubernetes-manifests/components/kubeflow/kserve-certificates.yaml --validate=false
+# Or use the fallback method in make/Makefile.infrastructure
+
+# Self-signed Issuer for KServe certificates  
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kserve-selfsigned-issuer
+  namespace: kserve
+spec:
+  selfSigned: {}
+
+---
+# Certificate for KServe webhook server
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-cert
+  namespace: kserve
+  labels:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/part-of: kubeflow
+spec:
+  secretName: kserve-webhook-server-cert
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+    - kserve
+  dnsNames:
+  - kserve-webhook-server-service
+  - kserve-webhook-server-service.kserve
+  - kserve-webhook-server-service.kserve.svc
+  - kserve-webhook-server-service.kserve.svc.cluster.local
+  issuerRef:
+    name: kserve-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+
+---
+# Additional certificate for KServe CA injection (if needed)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kserve-serving-ca
+  namespace: kserve
+  labels:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: ca
+    app.kubernetes.io/part-of: kubeflow
+spec:
+  secretName: kserve-serving-ca-secret
+  duration: 43800h # 5 years
+  renewBefore: 8760h # 1 year
+  isCA: true
+  commonName: "KServe CA"
+  subject:
+    organizations:
+    - kserve
+  issuerRef:
+    name: kserve-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io 

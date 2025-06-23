@@ -1,15 +1,4 @@
 ---
-# MinIO for Dataset Storage
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: minio
-  labels:
-    name: minio
-    app.kubernetes.io/name: minio
-    app.kubernetes.io/part-of: nimbusguard
-
----
 # MinIO PersistentVolume
 apiVersion: v1
 kind: PersistentVolume
