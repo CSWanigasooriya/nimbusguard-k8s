@@ -11,7 +11,6 @@ resources:
   - grafana.yaml
   - loki.yaml
   - tempo.yaml
-  - otel-operator.yaml
   - beyla.yaml
   - node-exporter.yaml
   - kube-state-metrics.yaml

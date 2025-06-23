@@ -19,7 +19,7 @@ spec:
       hostNetwork: true
       containers:
       - name: beyla
-        image: grafana/beyla:1.8.4
+        image: grafana/beyla:1.9.3
         securityContext:
           privileged: true
           capabilities:
