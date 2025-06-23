@@ -69,14 +69,110 @@ data:
       role = "service"
     }
 
+    // Discover Kubernetes Pods for metric scraping
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // Service discovery relabeling for node-exporter
+    discovery.relabel "node_exporter" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "node-exporter"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_service_port_name"]
+        regex = "metrics"
+        action = "keep"
+      }
+    }
+
+    // Service discovery relabeling for kube-state-metrics
+    discovery.relabel "kube_state_metrics" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "kube-state-metrics"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_service_port_name"]
+        regex = "http-metrics"
+        action = "keep"
+      }
+    }
+
+    // Service discovery relabeling for beyla
+    discovery.relabel "beyla_services" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "beyla"
+        action = "keep"
+      }
+    }
+
+    // Pod discovery relabeling for annotated pods
+    discovery.relabel "annotated_pods" {
+      targets = discovery.kubernetes.pods.targets
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex = "true"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        target_label = "__metrics_path__"
+        regex = "(.+)"
+        action = "replace"
+      }
+      rule {
+        source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        regex = "([^:]+)(?::\\d+)?;(\\d+)"
+        replacement = "${1}:${2}"
+        target_label = "__address__"
+        action = "replace"
+      }
+    }
+
     // Scrape NimbusGuard consumer service
     prometheus.scrape "nimbusguard_consumer" {
       targets = [
         {
           __address__ = "consumer:8000",
-          __metrics_path__ = "/health",
+          __metrics_path__ = "/metrics",
         },
       ]
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Node Exporter (host metrics)
+    prometheus.scrape "node_exporter" {
+      targets = discovery.relabel.node_exporter.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Kube State Metrics (Kubernetes object state)
+    prometheus.scrape "kube_state_metrics" {
+      targets = discovery.relabel.kube_state_metrics.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Beyla eBPF metrics
+    prometheus.scrape "beyla_metrics" {
+      targets = discovery.relabel.beyla_services.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Auto-discover pods with prometheus.io/scrape annotation
+    prometheus.scrape "annotated_pods" {
+      targets = discovery.relabel.annotated_pods.output
       forward_to = [prometheus.remote_write.default.receiver]
       scrape_interval = "30s"
     }
