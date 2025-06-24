@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: load-test-sustained
+  namespace: nimbusguard
   labels:
     load-test: sustained
 spec:

@@ -1,15 +1,15 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: load-test-light
+  name: load-test-burst
   namespace: nimbusguard
   labels:
-    load-test: light
+    load-test: burst
 spec:
   template:
     metadata:
       labels:
-        load-test: light
+        load-test: burst
     spec:
       restartPolicy: Never
       initContainers:
@@ -34,10 +34,11 @@ spec:
       containers:
       - name: load-generator
         image: nimbusguard-generator:latest
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         args:
         - --url=http://consumer:8000
-        - --test=light
+        - --test=burst
+        - --monitor
         - --cleanup
         resources:
           requests:
@@ -47,4 +48,4 @@ spec:
             memory: "256Mi"
             cpu: "200m"
   backoffLimit: 1
-  activeDeadlineSeconds: 300  # 5 minutes max for light test 
+  activeDeadlineSeconds: 300  # 5 minutes max 
