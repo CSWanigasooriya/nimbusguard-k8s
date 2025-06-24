@@ -37,7 +37,7 @@ spec:
         - name: BEYLA_SERVICE_NAMESPACE
           value: "nimbusguard"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://alloy:4317"
+          value: "http://alloy.nimbusguard.svc.cluster.local:4317"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "grpc"
         - name: BEYLA_LOG_LEVEL
