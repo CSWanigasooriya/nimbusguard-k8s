@@ -230,6 +230,8 @@ data:
 
     // Process and forward OTLP metrics to Prometheus
     otelcol.processor.batch "default" {
+      timeout = "1s"
+      send_batch_size = 512
       output {
         metrics = [otelcol.exporter.prometheus.default.input]
       }
