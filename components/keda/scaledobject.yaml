@@ -26,49 +26,26 @@ spec:
             value: 10  # Scale down slowly (10% max)
             periodSeconds: 60
   triggers:
-    # Primary scaling triggers - CPU & Memory (using Prometheus)
+    # Scale based on HTTP request rate (using actual available metric)
     - type: prometheus
       metadata:
-        serverAddress: http://prometheus:9090
-        metricName: cpu_usage_percent
-        threshold: '70'
-        query: |
-          avg(
-            rate(container_cpu_usage_seconds_total{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""}[2m])
-          ) * 100
-    
-    - type: prometheus
-      metadata:
-        serverAddress: http://prometheus:9090
-        metricName: memory_usage_percent
-        threshold: '80'
-        query: |
-          avg(
-            container_memory_working_set_bytes{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""}
-          ) / avg(
-            container_spec_memory_limit_bytes{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""} > 0
-          ) * 100
-    
-    # Application performance indicators
-    - type: prometheus
-      metadata:
-        serverAddress: http://prometheus:9090
+        serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
         metricName: http_requests_rate
-        threshold: '50'
-        query: sum(rate(http_requests_total{namespace="nimbusguard"}[1m]))
+        threshold: '5'
+        query: sum(rate(http_requests_total{instance="consumer:8000"}[1m]))
     
-    # Scale based on Go goroutines (application load)
+    # Scale based on HTTP request duration (application latency indicator)
     - type: prometheus
       metadata:
-        serverAddress: http://prometheus:9090
-        metricName: go_goroutines_avg
-        threshold: '100'
-        query: avg(go_goroutines{namespace="nimbusguard"})
+        serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
+        metricName: http_request_duration_avg
+        threshold: '2'
+        query: sum(rate(http_request_duration_seconds_sum{instance="consumer:8000"}[1m])) / sum(rate(http_request_duration_seconds_count{instance="consumer:8000"}[1m]))
         
     # Scale based on Python garbage collection pressure
     - type: prometheus
       metadata:
-        serverAddress: http://prometheus:9090
-        metricName: python_gc_pressure
-        threshold: '10'
-        query: sum(rate(python_gc_collections_total{namespace="nimbusguard"}[1m])) 
+        serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
+        metricName: python_gc_rate
+        threshold: '0.5'
+        query: sum(rate(python_gc_collections_total{instance="consumer:8000"}[1m])) 

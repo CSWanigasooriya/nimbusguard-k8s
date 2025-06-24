@@ -37,11 +37,11 @@ spec:
         - name: BEYLA_SERVICE_NAMESPACE
           value: "nimbusguard"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://alloy.nimbusguard.svc.cluster.local:4317"
+          value: "http://10.96.253.174:4318"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: "grpc"
+          value: "http/protobuf"
         - name: BEYLA_LOG_LEVEL
-          value: "info"
+          value: "debug"
         - name: BEYLA_METRICS_INTERVAL
           value: "30s"
         - name: BEYLA_BPF_BATCH_TIMEOUT
