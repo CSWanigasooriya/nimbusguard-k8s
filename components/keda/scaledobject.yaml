@@ -1,0 +1,74 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-scaledobject
+spec:
+  scaleTargetRef:
+    name: consumer
+  minReplicaCount: 1
+  maxReplicaCount: 15
+  pollingInterval: 30
+  cooldownPeriod: 300
+  advanced:
+    # Intelligent scaling behavior
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 60
+          policies:
+          - type: Percent
+            value: 50  # Scale up by 50% max
+            periodSeconds: 60
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Percent
+            value: 10  # Scale down slowly (10% max)
+            periodSeconds: 60
+  triggers:
+    # Primary scaling triggers - CPU & Memory (using Prometheus)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: cpu_usage_percent
+        threshold: '70'
+        query: |
+          avg(
+            rate(container_cpu_usage_seconds_total{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""}[2m])
+          ) * 100
+    
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: memory_usage_percent
+        threshold: '80'
+        query: |
+          avg(
+            container_memory_working_set_bytes{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""}
+          ) / avg(
+            container_spec_memory_limit_bytes{namespace="nimbusguard",pod=~"consumer.*",container!="POD",container!=""} > 0
+          ) * 100
+    
+    # Application performance indicators
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: http_requests_rate
+        threshold: '50'
+        query: sum(rate(http_requests_total{namespace="nimbusguard"}[1m]))
+    
+    # Scale based on Go goroutines (application load)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: go_goroutines_avg
+        threshold: '100'
+        query: avg(go_goroutines{namespace="nimbusguard"})
+        
+    # Scale based on Python garbage collection pressure
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: python_gc_pressure
+        threshold: '10'
+        query: sum(rate(python_gc_collections_total{namespace="nimbusguard"}[1m])) 

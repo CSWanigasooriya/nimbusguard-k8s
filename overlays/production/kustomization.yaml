@@ -6,6 +6,8 @@ resources:
 
 components:
   - ../../components/consumer
+  - ../../components/monitoring
+  - ../../components/keda
 
 namespace: nimbusguard
 
@@ -17,6 +19,7 @@ commonLabels:
 patchesStrategicMerge:
   # Add production-specific patches here
   # - replica-patch.yaml
+  - keda-patch.yaml
   # - resource-limits-patch.yaml
 
 images:

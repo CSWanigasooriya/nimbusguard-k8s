@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  # Job templates - uncomment the ones you want to run
+  - job-light.yaml
+  # - job-medium.yaml  
+  # - job-heavy.yaml
+  # - job-sustained.yaml
+  # - job-burst.yaml
+  # - job-memory-stress.yaml
+  # - job-cpu-stress.yaml
+
+labels:
+  - pairs:
+      component: load-generator 

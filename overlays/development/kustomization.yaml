@@ -7,6 +7,8 @@ resources:
 components:
   - ../../components/consumer
   - ../../components/monitoring
+  - ../../components/keda
+  - ../../components/load-generator
 
 namespace: nimbusguard
 
