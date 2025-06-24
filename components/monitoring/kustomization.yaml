@@ -17,4 +17,4 @@ resources:
 
 labels:
   - pairs:
-      component: monitoring 
+      component: monitoring

@@ -3,7 +3,7 @@ kind: Component
 
 resources:
   - scaledobject.yaml
-
+ 
 labels:
   - pairs:
       component: keda 

@@ -22,7 +22,12 @@ spec:
       serviceAccountName: kube-state-metrics
       containers:
       - name: kube-state-metrics
-        image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.14.0
+        image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
+        args:
+        - --resources=certificatesigningrequests,configmaps,cronjobs,daemonsets,deployments,horizontalpodautoscalers,ingresses,jobs,leases,limitranges,mutatingwebhookconfigurations,namespaces,networkpolicies,nodes,persistentvolumeclaims,persistentvolumes,poddisruptionbudgets,pods,replicasets,replicationcontrollers,resourcequotas,secrets,services,statefulsets,storageclasses,validatingwebhookconfigurations,volumeattachments,endpointslices
+        - --telemetry-port=8081
+        - --port=8080
+        - --metric-denylist=kube_endpoint_address_available,kube_endpoint_address_not_ready
         ports:
         - containerPort: 8080
           name: http-metrics
@@ -30,13 +35,13 @@ spec:
           name: telemetry
         livenessProbe:
           httpGet:
-            path: /healthz
+            path: /livez
             port: 8080
           initialDelaySeconds: 5
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
-            path: /
+            path: /readyz
             port: 8081
           initialDelaySeconds: 5
           timeoutSeconds: 5
@@ -123,6 +128,10 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources:
   - leases
+  verbs: ["list", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources:
+  - endpointslices
   verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
