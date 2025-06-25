@@ -33,7 +33,7 @@ spec:
         query: |
           sum(rate(python_gc_collections_total{job="prometheus.scrape.annotated_pods"}[2m]))
 
-    # Resource utilization trigger - CPU
+    # Resource utilization trigger - CPU (avg over 3m)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
@@ -42,11 +42,11 @@ spec:
         query: |
           avg(rate(process_cpu_seconds_total{instance="consumer:8000"}[3m])) * 100
 
-    # Resource utilization trigger - Memory
+    # Resource utilization trigger - Memory (95th percentile over 5m)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
         metricName: process_memory_usage_mb
         threshold: '300'
         query: |
-          max(process_resident_memory_bytes{instance="consumer:8000"}) / 1024 / 1024 
+          quantile_over_time(0.95, process_resident_memory_bytes{instance="consumer:8000"}[5m]) / 1024 / 1024 
