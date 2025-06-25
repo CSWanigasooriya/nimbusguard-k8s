@@ -6,10 +6,10 @@ metadata:
 spec:
   scaleTargetRef:
     name: consumer
-  minReplicaCount: 2
-  maxReplicaCount: 10
-  pollingInterval: 15
-  cooldownPeriod: 30
+  minReplicaCount: 1
+  maxReplicaCount: 50
+  pollingInterval: 30
+  cooldownPeriod: 5
   triggers:
     - type: prometheus
       metadata:
@@ -17,14 +17,14 @@ spec:
         metricName: http_request_rate
         threshold: '5'
         query: |
-          sum(rate(http_requests_total{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[2m]))
+          sum(rate(http_requests_total{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[1m]))
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
         metricName: http_request_duration
         threshold: '2'
         query: |
-          sum(rate(http_request_duration_seconds_sum{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[2m])) / sum(rate(http_request_duration_seconds_count{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[2m]))
+          sum(rate(http_request_duration_seconds_sum{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[1m])) / sum(rate(http_request_duration_seconds_count{handler="/process",job="prometheus.scrape.annotated_pods",method="POST"}[1m]))
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
