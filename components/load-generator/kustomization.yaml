@@ -11,6 +11,7 @@ resources:
   # - job-burst.yaml
   # - job-memory-stress.yaml
   # - job-cpu-stress.yaml
+  - cronjob-production.yaml
 
 labels:
   - pairs:

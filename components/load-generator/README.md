@@ -28,12 +28,45 @@ kubectl logs -f job/load-test-sustained
 
 ## 📋 **Available Job Types**
 
-| Job File | Test Type | Duration | Purpose |
-|----------|-----------|----------|---------|
-| `job-heavy.yaml` | Heavy load | ~10 min | **Trigger immediate scaling** |
-| `job-sustained.yaml` | Sustained load | ~30 min | **Test scale-up/down cycle** |
+| Job File | Test Type | Duration | Processing Mode | Purpose |
+|----------|-----------|----------|-----------------|---------|
+| `job-heavy.yaml` | Heavy load | ~10 min | **Async** | **Trigger immediate scaling** |
+| `job-sustained.yaml` | Sustained load | ~30 min | **Async** | **Test scale-up/down cycle** |
+| `job-medium.yaml` | Medium load | ~8 min | **Async** | **Realistic moderate load** |
+| `job-light.yaml` | Light load | ~5 min | **Async** | **Baseline performance** |
+| `job-burst.yaml` | Burst load | ~5 min | **Async** | **High concurrency spikes** |
+| `job-memory-stress.yaml` | Memory stress | ~10 min | **Async** | **Memory-based scaling** |
+| `job-cpu-stress.yaml` | CPU stress | ~10 min | **Sync** | **CPU-intensive blocking tasks** |
 
+### 🔄 **Async vs Sync Processing**
 
+- **Async Mode (Default)**: Requests return immediately while processing happens in background
+  - ✅ **Realistic**: Mirrors real-world microservice patterns
+  - ✅ **High Throughput**: Can handle many concurrent requests
+  - ✅ **Better Scaling**: Shows how services handle request bursts
+  - ✅ **Non-blocking**: Consumer remains responsive during load
+
+- **Sync Mode**: Requests block until processing completes
+  - 🔍 **Testing**: Useful for testing resource limits under blocking load
+  - ⚠️ **Lower Throughput**: Limited by processing time
+  - ⚠️ **Less Realistic**: Most modern services use async patterns
+
+### ⚖️ **KEDA Scaling Triggers**
+
+The system uses **proven scaling triggers** based on FastAPI instrumentator metrics:
+
+| Trigger Type | Metric | Threshold | Purpose |
+|-------------|--------|-----------|---------|
+| **HTTP Load** | Request rate | > 5 req/sec | Scale for traffic spikes |
+| **Latency** | Response time | > 2 seconds | Scale when service slows down |
+| **GC Pressure** | Python GC rate | > 0.5/sec | Scale for memory pressure |
+
+This **application-focused scaling** ensures the system responds to:
+- 🚀 **Traffic surges** (HTTP request rate)
+- 🐌 **Performance degradation** (HTTP latency)  
+- 🧠 **Memory pressure** (Python garbage collection)
+
+**Note**: These metrics are provided by `prometheus_fastapi_instrumentator` and are **confirmed working** in the current setup. Additional CPU/memory metrics can be added when proper process-level monitoring is configured.
 
 ## 🔧 **Usage in Your Overlays**
 
