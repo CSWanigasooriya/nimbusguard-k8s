@@ -50,6 +50,13 @@ rules:
 - apiGroups: ["coordination.k8s.io"]
   resources: ["*"]
   verbs: ["get", "list", "watch"]
+# Additional permissions for LLM validation of scaling actions
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects"]
+  verbs: ["get", "list", "watch", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -53,15 +53,15 @@ spec:
           value: "true"  # Enable comprehensive AI reasoning logs
         - name: REASONING_LOG_LEVEL
           value: "INFO"  # INFO for production, DEBUG for development
-        # Configuration
+        # Configuration  
         - name: POLLING_INTERVAL
-          value: "30"
+          value: "5"
         - name: TARGET_DEPLOYMENT
           value: "consumer"
         - name: TARGET_NAMESPACE
           value: "nimbusguard"
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "60"
+          value: "5"
         - name: REWARD_LATENCY_WEIGHT
           value: "10.0"
         - name: REWARD_REPLICA_COST

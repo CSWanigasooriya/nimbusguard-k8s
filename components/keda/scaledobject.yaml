@@ -50,8 +50,8 @@
 #           quantile_over_time(0.95, process_resident_memory_bytes{instance="consumer:8000"}[5m]) / 1024 / 1024 
 
 ---
-# DQN-Driven Intelligent ScaledObject using KEDA Metrics API
-# This uses the DQN adapter's metrics API endpoint for intelligent scaling decisions
+# DQN-Driven Real-Time Intelligent ScaledObject using KEDA Metrics API
+# Optimized for sub-20 second response times with aggressive real-time scaling
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -65,13 +65,43 @@ spec:
     name: consumer
   minReplicaCount: 1
   maxReplicaCount: 50
-  pollingInterval: 30  # Aligned with DQN adapter timer interval
-  cooldownPeriod: 30   # Longer cooldown to allow DQN learning
+  # REAL-TIME CONFIGURATION: Aggressive polling for <20 second response
+  pollingInterval: 5    # Check DQN decisions every 5 seconds (was 30)
+  cooldownPeriod: 10    # Minimal cooldown for responsive scaling (was 30)
+  idleReplicaCount: 1   # Scale to 1 when no load detected
+  
+  # Advanced real-time scaling behavior
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          # Aggressive scale-up for performance
+          stabilizationWindowSeconds: 5  # React quickly to load spikes
+          selectPolicy: Max              # Use most aggressive policy
+          policies:
+          - type: Percent
+            value: 100                   # Scale up by 100% immediately
+            periodSeconds: 5             # Re-evaluate every 5 seconds
+          - type: Pods  
+            value: 5                     # Or add 5 pods max per cycle
+            periodSeconds: 5
+        scaleDown:
+          # Conservative scale-down to prevent thrashing
+          stabilizationWindowSeconds: 30  # Wait 30s before scaling down
+          selectPolicy: Min               # Use most conservative policy
+          policies:
+          - type: Percent
+            value: 25                     # Scale down by max 25% at a time
+            periodSeconds: 15             # Re-evaluate every 15 seconds
+          - type: Pods
+            value: 2                      # Or remove max 2 pods per cycle
+            periodSeconds: 15
+  
   triggers:
-    # Use KEDA Metrics API to query the DQN adapter's intelligent scaling decision
+    # Real-time DQN decision integration via KEDA Metrics API
     - type: metrics-api
       metadata:
-        targetValue: "1"  # Scale to match the DQN's desired replica count
-        activationTargetValue: "0.5"  # Activate scaling when DQN suggests > 0.5 replicas
+        targetValue: "1"                 # Scale to match DQN's desired replica count
+        activationTargetValue: "0.1"     # Activate scaling when DQN suggests > 0.1 replicas  
         url: "http://dqn-adapter.nimbusguard.svc:8080/api/v1/dqn-metrics"
         valueLocation: "dqn.desired_replicas"  # GJSON path to extract the metric value 

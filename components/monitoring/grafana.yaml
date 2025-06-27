@@ -20,9 +20,17 @@ spec:
         env:
         - name: GF_SECURITY_ADMIN_PASSWORD
           value: "admin"
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel"
+        - name: GF_FEATURE_TOGGLES_ENABLE
+          value: "tempoSearch,tempoServiceGraph,correlations"
         volumeMounts:
         - name: grafana-config
-          mountPath: /etc/grafana/provisioning
+          mountPath: /etc/grafana/provisioning/datasources
         resources:
           requests:
             memory: "256Mi"
@@ -42,27 +50,53 @@ metadata:
 data:
   datasources.yaml: |
     apiVersion: 1
+    deleteDatasources:
+      - name: Prometheus
+      - name: Loki  
+      - name: Tempo
     datasources:
     - name: Prometheus
       type: prometheus
       access: proxy
       url: http://prometheus:9090
       isDefault: true
+      editable: false
+      orgId: 1
+      uid: prometheus
+      jsonData:
+        httpMethod: POST
+        prometheusType: Prometheus
+        prometheusVersion: 2.40.0
+        cacheLevel: 'High'
     - name: Loki
       type: loki
       access: proxy
       url: http://loki:3100
+      editable: false
+      orgId: 1
+      uid: loki
+      jsonData:
+        maxLines: 1000
     - name: Tempo
       type: tempo
       access: proxy
       url: http://tempo:3200
+      editable: false
+      orgId: 1
+      uid: tempo
       jsonData:
         tracesToLogs:
           datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: true
         tracesToMetrics:
           datasourceUid: prometheus
         serviceMap:
           datasourceUid: prometheus
+        search:
+          hide: false
+        nodeGraph:
+          enabled: true
 ---
 apiVersion: v1
 kind: Service
