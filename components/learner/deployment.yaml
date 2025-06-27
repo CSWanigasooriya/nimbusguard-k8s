@@ -21,10 +21,7 @@ spec:
       - name: learner
         image: nimbusguard-learner:latest
         imagePullPolicy: Always
-        ports:
-        - containerPort: 8002
-          name: http
-          protocol: TCP
+        # No ports needed - Kopf operator only connects to K8s API, Redis, and MinIO
         env:
         - name: REDIS_URL
           value: "redis://redis.nimbusguard.svc:6379"
@@ -72,27 +69,4 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "1000m"
-        livenessProbe:
-          exec:
-            command:
-            - timeout
-            - "5"
-            - curl
-            - "-f"
-            - "http://localhost:8002/healthz"
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
-        readinessProbe:
-          exec:
-            command:
-            - timeout
-            - "5"
-            - curl
-            - "-f"
-            - "http://localhost:8002/healthz"
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 5
+        # No liveness probe needed - Kopf operator manages its own lifecycle
