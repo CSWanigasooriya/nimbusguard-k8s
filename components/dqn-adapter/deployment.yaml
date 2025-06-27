@@ -15,8 +15,8 @@ spec:
       annotations:
         # This annotation is crucial. It tells Alloy/Prometheus to scrape this pod.
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
-        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/healthz"
     spec:
       serviceAccountName: dqn-adapter-sa
       containers:
@@ -40,12 +40,13 @@ spec:
           value: "http://dqn-model.nimbusguard.svc.cluster.local/v1/models/dqn-model:predict"
         - name: MCP_SERVER_URL
           value: "http://mcp-server:8080"
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: http
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        # readinessProbe:
+        #   httpGet:
+        #     path: /healthz
+        #     port: 8001
+        #   initialDelaySeconds: 15
+        #   periodSeconds: 10
+        #   timeoutSeconds: 5
         resources:
           requests:
             memory: "256Mi"
