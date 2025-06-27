@@ -2,7 +2,6 @@ apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: consumer-scaler
-  namespace: nimbusguard
 spec:
   scaleTargetRef:
     name: consumer

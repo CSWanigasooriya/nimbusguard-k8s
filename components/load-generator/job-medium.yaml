@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: load-test-medium
-  namespace: nimbusguard
   labels:
     load-test: medium
 spec:

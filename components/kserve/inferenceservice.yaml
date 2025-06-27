@@ -1,0 +1,20 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "dqn-model"
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  predictor:
+    serviceAccountName: kserve-sa
+    model:
+      modelFormat:
+        name: pytorch
+      storageUri: "s3://models/dqn_model.pt"
+      runtime: kserve-torchserve
+      protocolVersion: "v2"
+      env:
+        - name: S3_ENDPOINT
+          value: "minio.nimbusguard.svc.cluster.local:9000"
+        - name: S3_USE_HTTPS
+          value: "0"

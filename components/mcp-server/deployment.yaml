@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-server
+    spec:
+      containers:
+      - name: mcp-kubernetes
+        image: mcp/kubernetes
+        ports:
+        - containerPort: 8080
+          name: http 

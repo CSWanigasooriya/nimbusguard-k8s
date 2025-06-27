@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: load-test-memory-stress
-  namespace: nimbusguard
   labels:
     load-test: memory-stress
 spec:

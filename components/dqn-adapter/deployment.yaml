@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dqn-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dqn-adapter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dqn-adapter
+        component: dqn-adapter
+      annotations:
+        # This annotation is crucial. It tells Alloy/Prometheus to scrape this pod.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dqn-adapter-sa
+      containers:
+      - name: adapter
+        # NOTE: You will need to build and push this image to your registry.
+        image: nimbusguard-dqn-adapter:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        # You would typically use a secret for the OpenAI API key in production
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-api-key # Assumes a secret named 'openai-api-key' exists
+              key: key
+        - name: PROMETHEUS_URL
+          value: "http://prometheus.nimbusguard.svc:9090"
+        - name: KSERVE_URL
+          value: "http://dqn-model.nimbusguard.svc.cluster.local/v1/models/dqn-model:predict"
+        - name: MCP_SERVER_URL
+          value: "http://mcp-server:8080"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m" 

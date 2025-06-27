@@ -1,16 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: nimbusguard
 
-resources:
+bases:
   - ../../base
 
 components:
-  - ../../components/monitoring
   - ../../components/consumer
+  - ../../components/dqn-adapter
+  - ../../components/learner
+  - ../../components/redis
+  - ../../components/minio
+  - ../../components/monitoring
   - ../../components/keda
-  - ../../components/load-generator
-
-namespace: nimbusguard
+  - ../../components/kserve
+  - ../../components/mcp-server
 
 labels:
   - pairs:
