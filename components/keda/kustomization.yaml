@@ -6,4 +6,4 @@ resources:
  
 labels:
   - pairs:
-      component: keda 
+      component: keda-dqn 
