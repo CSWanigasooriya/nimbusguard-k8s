@@ -7,7 +7,11 @@ resources:
 components:
   - ../../components/monitoring
   - ../../components/consumer
+  - ../../components/dqn-adapter
+  - ../../components/redis
+  - ../../components/minio
   - ../../components/keda
+  - ../../components/mcp-server
 
 namespace: nimbusguard
 
@@ -19,7 +23,7 @@ commonLabels:
 patchesStrategicMerge:
   # Add production-specific patches here
   # - replica-patch.yaml
-  - keda-patch.yaml
+  # - keda-patch.yaml
   # - resource-limits-patch.yaml
 
 images:

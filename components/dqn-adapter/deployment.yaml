@@ -39,8 +39,6 @@ spec:
         # Service URLs
         - name: PROMETHEUS_URL
           value: "http://prometheus.nimbusguard.svc:9090"
-        - name: KSERVE_URL
-          value: "http://dqn-model.nimbusguard.svc.cluster.local/v1/models/dqn-model:predict"
         - name: MCP_SERVER_URL
           value: "http://mcp-server.nimbusguard.svc:8080"
         - name: REDIS_URL

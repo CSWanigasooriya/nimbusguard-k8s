@@ -65,7 +65,7 @@ spec:
     name: consumer
   minReplicaCount: 1
   maxReplicaCount: 50
-  pollingInterval: 15  # More frequent polling for intelligent decisions
+  pollingInterval: 30  # Aligned with DQN adapter timer interval
   cooldownPeriod: 30   # Longer cooldown to allow DQN learning
   triggers:
     # Use KEDA Metrics API to query the DQN adapter's intelligent scaling decision

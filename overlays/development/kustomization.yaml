@@ -8,12 +8,10 @@ resources:
 components:
   - ../../components/consumer
   - ../../components/dqn-adapter
-  - ../../components/learner
   - ../../components/redis
   - ../../components/minio
   - ../../components/monitoring
   - ../../components/keda
-  - ../../components/kserve
   - ../../components/mcp-server
 
 labels:
