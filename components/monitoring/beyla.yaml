@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: beyla
+  labels:
+    app.kubernetes.io/name: beyla
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: beyla
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: beyla
+        component: monitoring
+    spec:
+      serviceAccountName: beyla
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: beyla
+        image: grafana/beyla:1.9.3
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - SYS_ADMIN
+            - SYS_RESOURCE
+            - SYS_PTRACE
+            - NET_ADMIN
+            - NET_RAW
+            - BPF
+            - PERFMON
+        env:
+        - name: BEYLA_OPEN_PORT
+          value: "8000"  # Monitor our FastAPI consumer port
+        - name: BEYLA_SERVICE_NAMESPACE
+          value: "nimbusguard"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://alloy.nimbusguard.svc.cluster.local:4318"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "http/protobuf"
+        - name: OTEL_EXPORTER_OTLP_TIMEOUT
+          value: "30000"
+        - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
+          value: "60000"
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: "http://alloy.nimbusguard.svc.cluster.local:4318/v1/metrics"
+        - name: BEYLA_LOG_LEVEL
+          value: "debug"
+        - name: BEYLA_METRICS_INTERVAL
+          value: "30s"
+        - name: BEYLA_BPF_BATCH_TIMEOUT
+          value: "100ms"
+        - name: BEYLA_DISCOVERY_SERVICES
+          value: "true"
+        - name: BEYLA_ROUTES_MATCHER
+          value: "path"  # Group HTTP routes by path patterns
+        # Enable OTEL exporters
+        - name: BEYLA_OTEL_TRACES_EXPORT
+          value: "true"
+        - name: BEYLA_OTEL_METRICS_EXPORT
+          value: "true"
+        resources:
+          requests:
+            memory: "100Mi"
+            cpu: "100m"
+          limits:
+            memory: "200Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: debugfs
+          mountPath: /sys/kernel/debug
+          readOnly: true
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: debugfs
+        hostPath:
+          path: /sys/kernel/debug
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: beyla
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: beyla
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: beyla
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: beyla
+subjects:
+- kind: ServiceAccount
+  name: beyla
+  namespace: nimbusguard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: beyla
+spec:
+  selector:
+    app.kubernetes.io/name: beyla
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP 

@@ -1,0 +1,262 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alloy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+      - name: alloy
+        image: grafana/alloy:v1.9.0
+        ports:
+        - containerPort: 8080
+          name: http-metrics
+        - containerPort: 8081
+          name: http-pprof
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        args:
+        - run
+        - /etc/alloy/config.alloy
+        - --server.http.listen-addr=0.0.0.0:8080
+        - --cluster.enabled=false
+        volumeMounts:
+        - name: alloy-config
+          mountPath: /etc/alloy
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      volumes:
+      - name: alloy-config
+        configMap:
+          name: alloy-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+data:
+  config.alloy: |
+    // ============= METRICS =============
+    // Prometheus metrics forwarding
+    prometheus.remote_write "default" {
+      endpoint {
+        url = "http://prometheus:9090/api/v1/write"
+      }
+    }
+
+    // Discover Kubernetes Services  
+    discovery.kubernetes "services" {
+      role = "service"
+    }
+
+    // Discover Kubernetes Pods for metric scraping
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // Service discovery relabeling for node-exporter
+    discovery.relabel "node_exporter" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "node-exporter"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_service_port_name"]
+        regex = "metrics"
+        action = "keep"
+      }
+    }
+
+    // Service discovery relabeling for kube-state-metrics
+    discovery.relabel "kube_state_metrics" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "kube-state-metrics"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_service_port_name"]
+        regex = "http-metrics"
+        action = "keep"
+      }
+    }
+
+    // Service discovery relabeling for beyla
+    discovery.relabel "beyla_services" {
+      targets = discovery.kubernetes.services.targets
+      rule {
+        source_labels = ["__meta_kubernetes_service_name"]
+        regex = "beyla"
+        action = "keep"
+      }
+    }
+
+    // Pod discovery relabeling for annotated pods
+    discovery.relabel "annotated_pods" {
+      targets = discovery.kubernetes.pods.targets
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex = "true"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        target_label = "__metrics_path__"
+        regex = "(.+)"
+        action = "replace"
+      }
+      rule {
+        source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        regex = "([^:]+)(?::\\d+)?;(\\d+)"
+        replacement = "${1}:${2}"
+        target_label = "__address__"
+        action = "replace"
+      }
+    }
+
+    // Scrape NimbusGuard consumer service
+    prometheus.scrape "nimbusguard_consumer" {
+      targets = [
+        {
+          __address__ = "consumer:8000",
+          __metrics_path__ = "/metrics",
+        },
+      ]
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Node Exporter (host metrics)
+    prometheus.scrape "node_exporter" {
+      targets = discovery.relabel.node_exporter.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Kube State Metrics (Kubernetes object state)
+    prometheus.scrape "kube_state_metrics" {
+      targets = discovery.relabel.kube_state_metrics.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Scrape Beyla eBPF metrics
+    prometheus.scrape "beyla_metrics" {
+      targets = discovery.relabel.beyla_services.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // Auto-discover pods with prometheus.io/scrape annotation
+    prometheus.scrape "annotated_pods" {
+      targets = discovery.relabel.annotated_pods.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "30s"
+    }
+
+    // ============= LOGS =============
+    // Loki log forwarding
+    loki.write "default" {
+      endpoint {
+        url = "http://loki:3100/loki/api/v1/push"
+      }
+    }
+
+    // Discover pods for log collection
+    discovery.kubernetes "pods_logs" {
+      role = "pod"
+    }
+
+    // Collect container logs automatically
+    loki.source.kubernetes "pods" {
+      targets    = discovery.kubernetes.pods_logs.targets
+      forward_to = [loki.process.add_labels.receiver]
+    }
+
+    // Add useful labels to logs
+    loki.process "add_labels" {
+      forward_to = [loki.write.default.receiver]
+
+      stage.docker {}
+      
+      stage.labels {
+        values = {
+          namespace = "__meta_kubernetes_namespace",
+          pod       = "__meta_kubernetes_pod_name",
+          container = "__meta_kubernetes_container_name",
+          app       = "__meta_kubernetes_pod_label_app_kubernetes_io_name",
+        }
+      }
+    }
+
+    // ============= TRACES =============
+    // OpenTelemetry traces forwarding to Tempo  
+    otelcol.receiver.otlp "default" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+      output {
+        traces  = [otelcol.exporter.otlp.tempo.input]
+        metrics = [otelcol.processor.batch.default.input]
+        logs    = [otelcol.processor.batch.logs.input]
+      }
+    }
+
+    // Process and forward OTLP metrics to Prometheus
+    otelcol.processor.batch "default" {
+      timeout = "1s"
+      send_batch_size = 512
+      output {
+        metrics = [otelcol.exporter.prometheus.default.input]
+      }
+    }
+
+    // Process and forward OTLP logs to Loki
+    otelcol.processor.batch "logs" {
+      output {
+        logs = [otelcol.exporter.loki.default.input]
+      }
+    }
+
+    otelcol.exporter.prometheus "default" {
+      forward_to = [prometheus.remote_write.default.receiver]
+    }
+
+    otelcol.exporter.loki "default" {
+      forward_to = [loki.write.default.receiver]
+    }
+
+    otelcol.exporter.otlp "tempo" {
+      client {
+        endpoint = "http://tempo:4317"
+        tls {
+          insecure = true
+        }
+      }
+    } 

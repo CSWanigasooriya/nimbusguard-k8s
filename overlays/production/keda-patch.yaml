@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-scaledobject
+spec:
+  minReplicaCount: 2
+  maxReplicaCount: 50
+  pollingInterval: 15
+  cooldownPeriod: 600
+  triggers:
+    # More conservative CPU threshold for production
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "60"
+    
+    # More conservative memory threshold for production
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: "70" 

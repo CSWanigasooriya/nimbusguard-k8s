@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: load-generator-prod
+  labels:
+    load-test: production-sim
+spec:
+  # Every minute launch a short-living Job that floods the service for 45 s
+  schedule: "*/1 * * * *"
+  concurrencyPolicy: Forbid           # don't start a new one if the previous run is still active
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120       # hard stop per run
+      template:
+        metadata:
+          labels:
+            load-test: production-sim
+        spec:
+          restartPolicy: Never
+          initContainers:
+          - name: wait-for-consumer
+            image: curlimages/curl:8.5.0
+            command: ["sh", "-c"]
+            args:
+            - |
+              echo "Waiting for consumer service to become healthy…";
+              until curl -f -s http://consumer:8000/health > /dev/null; do
+                echo "Not ready…sleep 5s"; sleep 5; done; echo "Consumer ready!";
+            resources:
+              requests: {cpu: "10m", memory: "16Mi"}
+              limits:   {cpu: "50m", memory: "32Mi"}
+          containers:
+          - name: load-generator
+            image: nimbusguard-generator:latest
+            imagePullPolicy: IfNotPresent
+            # Produce variable load: pick a random test each run
+            command: ["bash", "-c"]
+            args:
+            - |
+              TESTS=(light medium heavy burst); RANDOM_TEST=${TESTS[$((RANDOM%${#TESTS[@]}))]};
+              echo "👉 Running $RANDOM_TEST pattern for this tick";
+              exec python load_generator.py --url=http://consumer:8000 --test=$RANDOM_TEST --monitor --cleanup;
+            resources:
+              requests: {cpu: "100m", memory: "128Mi"}
+              limits:   {cpu: "300m", memory: "256Mi"} 

@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-server-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-server-role
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["batch"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["autoscaling"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["policy"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch", "describe"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-server-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcp-server-role
+subjects:
+- kind: ServiceAccount
+  name: mcp-server-sa
+  namespace: nimbusguard 
