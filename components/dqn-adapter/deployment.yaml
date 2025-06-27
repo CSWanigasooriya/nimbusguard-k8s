@@ -43,6 +43,16 @@ spec:
           value: "http://mcp-server.nimbusguard.svc:8080"
         - name: REDIS_URL
           value: "redis://redis.nimbusguard.svc:6379"
+        # AI Model Configuration (cost-effective)
+        - name: AI_MODEL
+          value: "gpt-3.5-turbo"  # More cost-effective than gpt-4o-mini
+        - name: AI_TEMPERATURE
+          value: "0.1"  # Low temperature for consistent reasoning
+        # Explainable AI Configuration
+        - name: ENABLE_DETAILED_REASONING
+          value: "true"  # Enable comprehensive AI reasoning logs
+        - name: REASONING_LOG_LEVEL
+          value: "INFO"  # INFO for production, DEBUG for development
         # Configuration
         - name: POLLING_INTERVAL
           value: "30"
