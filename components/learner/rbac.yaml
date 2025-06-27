@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: learner-sa
+  labels:
+    app.kubernetes.io/name: learner
+    app.kubernetes.io/component: training
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: learner-role
+rules:
+# Kopf operator framework requirements
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["list", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+# KEDA ScaledObject permissions for event-driven learning
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "scaledjobs", "triggerauthentications", "clustertriggerauthentications"]
+  verbs: ["get", "list", "watch"]
+# Deployment monitoring for training context
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: learner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: learner-role
+subjects:
+- kind: ServiceAccount
+  name: learner-sa
+  namespace: nimbusguard 

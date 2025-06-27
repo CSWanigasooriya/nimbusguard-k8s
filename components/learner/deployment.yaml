@@ -16,10 +16,15 @@ spec:
         app.kubernetes.io/name: learner
         app.kubernetes.io/component: training
     spec:
+      serviceAccountName: learner-sa
       containers:
       - name: learner
         image: nimbusguard-learner:latest
         imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+          name: http
+          protocol: TCP
         env:
         - name: REDIS_URL
           value: "redis://redis.nimbusguard.svc:6379"
@@ -33,6 +38,10 @@ spec:
           value: "minioadmin"
         - name: BUCKET_NAME
           value: "models"
+        - name: TARGET_NAMESPACE
+          value: "nimbusguard"
+        - name: SCALEDOBJECT_NAME
+          value: "consumer-scaler-dqn"
         - name: PYTHONUNBUFFERED
           value: "1"
         # Enhanced DQN Parameters
@@ -66,9 +75,11 @@ spec:
         livenessProbe:
           exec:
             command:
-            - python
-            - -c
-            - "import redis; redis.from_url('redis://redis.nimbusguard.svc:6379').ping()"
+            - timeout
+            - "5"
+            - curl
+            - "-f"
+            - "http://localhost:8002/healthz"
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
@@ -76,10 +87,12 @@ spec:
         readinessProbe:
           exec:
             command:
-            - python
-            - -c
-            - "import redis; redis.from_url('redis://redis.nimbusguard.svc:6379').ping()"
-          initialDelaySeconds: 10
+            - timeout
+            - "5"
+            - curl
+            - "-f"
+            - "http://localhost:8002/healthz"
+          initialDelaySeconds: 15
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+          timeoutSeconds: 10
+          failureThreshold: 5
