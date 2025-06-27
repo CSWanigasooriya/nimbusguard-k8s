@@ -22,21 +22,64 @@ spec:
         imagePullPolicy: Always
         env:
         - name: REDIS_URL
-          value: "redis://redis:6379"
+          value: "redis://redis.nimbusguard.svc:6379"
         - name: MINIO_ENDPOINT
-          value: "http://minio:9000"
+          value: "http://minio.nimbusguard.svc:9000"
+        - name: PROMETHEUS_URL
+          value: "http://prometheus.nimbusguard.svc:9090"
         - name: MINIO_ACCESS_KEY
           value: "minioadmin"
         - name: MINIO_SECRET_KEY
           value: "minioadmin"
-        - name: MINIO_BUCKET
+        - name: BUCKET_NAME
           value: "models"
         - name: PYTHONUNBUFFERED
           value: "1"
+        # Enhanced DQN Parameters
+        - name: MEMORY_CAPACITY
+          value: "50000"
+        - name: BATCH_SIZE
+          value: "64"
+        - name: GAMMA
+          value: "0.99"
+        - name: LR
+          value: "0.0001"
+        - name: TARGET_UPDATE_INTERVAL
+          value: "1000"
+        - name: SAVE_INTERVAL_SECONDS
+          value: "300"
+        - name: EVALUATION_INTERVAL
+          value: "100"
+        - name: ALPHA
+          value: "0.6"
+        - name: BETA
+          value: "0.4"
+        - name: BETA_INCREMENT
+          value: "0.001"
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
             memory: "1Gi"
             cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import redis; redis.from_url('redis://redis.nimbusguard.svc:6379').ping()"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import redis; redis.from_url('redis://redis.nimbusguard.svc:6379').ping()"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

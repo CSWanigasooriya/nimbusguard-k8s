@@ -23,34 +23,71 @@ spec:
       - name: adapter
         # NOTE: You will need to build and push this image to your registry.
         image: nimbusguard-dqn-adapter:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8001
           name: http
+        - containerPort: 8080
+          name: metrics
         env:
-        # You would typically use a secret for the OpenAI API key in production
+        # OpenAI API key for LLM validation
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
               name: openai-api-key # Assumes a secret named 'openai-api-key' exists
               key: key
+        # Service URLs
         - name: PROMETHEUS_URL
           value: "http://prometheus.nimbusguard.svc:9090"
         - name: KSERVE_URL
           value: "http://dqn-model.nimbusguard.svc.cluster.local/v1/models/dqn-model:predict"
         - name: MCP_SERVER_URL
-          value: "http://mcp-server:8080"
-        # readinessProbe:
-        #   httpGet:
-        #     path: /healthz
-        #     port: 8001
-        #   initialDelaySeconds: 15
-        #   periodSeconds: 10
-        #   timeoutSeconds: 5
+          value: "http://mcp-server.nimbusguard.svc:8080"
+        - name: REDIS_URL
+          value: "redis://redis.nimbusguard.svc:6379"
+        # Configuration
+        - name: POLLING_INTERVAL
+          value: "30"
+        - name: TARGET_DEPLOYMENT
+          value: "consumer"
+        - name: TARGET_NAMESPACE
+          value: "nimbusguard"
+        - name: STABILIZATION_PERIOD_SECONDS
+          value: "60"
+        - name: REWARD_LATENCY_WEIGHT
+          value: "10.0"
+        - name: REWARD_REPLICA_COST
+          value: "0.1"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        readinessProbe:
+          exec:
+            command:
+            - timeout
+            - "5"
+            - curl
+            - "-f"
+            - "http://localhost:8001/healthz"
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 5
+        livenessProbe:
+          exec:
+            command:
+            - timeout
+            - "5"
+            - curl
+            - "-f"
+            - "http://localhost:8001/healthz"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
             memory: "512Mi"
-            cpu: "300m" 
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m" 
