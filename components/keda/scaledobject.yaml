@@ -68,7 +68,7 @@ spec:
   # REAL-TIME CONFIGURATION: Aggressive polling for <20 second response
   pollingInterval: 5    # Check DQN decisions every 5 seconds (was 30)
   cooldownPeriod: 10    # Minimal cooldown for responsive scaling (was 30)
-  idleReplicaCount: 1   # Scale to 1 when no load detected
+  # idleReplicaCount: 0   # Commented out - causes conflict when equal to minReplicaCount
   
   # Advanced real-time scaling behavior
   advanced:

@@ -53,7 +53,9 @@ spec:
           value: "true"  # Enable comprehensive AI reasoning logs
         - name: REASONING_LOG_LEVEL
           value: "INFO"  # INFO for production, DEBUG for development
-        # Configuration  
+        - name: ENABLE_LLM_VALIDATION
+          value: "true"  # Enable LLM validation (set to false if permission issues)
+        # Configuration
         - name: POLLING_INTERVAL
           value: "5"
         - name: TARGET_DEPLOYMENT
