@@ -4,7 +4,8 @@ kind: Component
 resources:
   - deployment.yaml
   - service.yaml
+  - hpa.yaml
 
 labels:
   - pairs:
-      component: consumer 
+      component: consumer

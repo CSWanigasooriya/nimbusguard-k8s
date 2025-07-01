@@ -43,31 +43,92 @@ spec:
           value: "http://mcp-server.nimbusguard.svc:8080"
         - name: REDIS_URL
           value: "redis://redis.nimbusguard.svc:6379"
-        # AI Model Configuration (cost-effective)
+        
+        # === AI MODEL CONFIGURATION ===
         - name: AI_MODEL
           value: "gpt-3.5-turbo"  # More cost-effective than gpt-4o-mini
         - name: AI_TEMPERATURE
           value: "0.1"  # Low temperature for consistent reasoning
-        # Explainable AI Configuration
+        
+        # === EXPLAINABLE AI CONFIGURATION ===
         - name: ENABLE_DETAILED_REASONING
           value: "true"  # Enable comprehensive AI reasoning logs
         - name: REASONING_LOG_LEVEL
           value: "INFO"  # INFO for production, DEBUG for development
         - name: ENABLE_LLM_VALIDATION
           value: "true"  # Enable LLM validation (set to false if permission issues)
-        # Configuration
+        
+        # === DQN EXPLORATION STRATEGY ===
+        - name: EPSILON_START
+          value: "0.3"    # Initial exploration probability
+        - name: EPSILON_END
+          value: "0.05"   # Final exploration probability
+        - name: EPSILON_DECAY
+          value: "0.995"  # Exploration decay rate per decision
+        
+        # === DQN TRAINING HYPERPARAMETERS ===
+        - name: GAMMA
+          value: "0.99"     # Discount factor for future rewards
+        - name: LR
+          value: "0.0001"   # Learning rate (1e-4)
+        - name: MEMORY_CAPACITY
+          value: "50000"    # Replay buffer size
+        - name: MIN_BATCH_SIZE
+          value: "8"        # Minimum training batch size
+        - name: BATCH_SIZE
+          value: "32"       # Default training batch size
+        - name: TARGET_BATCH_SIZE
+          value: "64"       # Target training batch size
+        - name: TARGET_UPDATE_INTERVAL
+          value: "1000"     # Steps between target network updates
+        
+        # === NEURAL NETWORK ARCHITECTURE ===
+        - name: DQN_HIDDEN_DIMS
+          value: "512,256,128"  # DQN hidden layer dimensions
+        - name: LSTM_HIDDEN_DIM
+          value: "64"           # LSTM hidden dimension
+        - name: LSTM_NUM_LAYERS
+          value: "2"            # Number of LSTM layers
+        - name: LSTM_DROPOUT
+          value: "0.2"          # LSTM dropout rate
+        - name: LSTM_SEQUENCE_LENGTH
+          value: "24"           # LSTM sequence length (2 min at 5s intervals)
+        
+        # === REWARD SYSTEM CONFIGURATION ===
+        - name: STABILIZATION_PERIOD_SECONDS
+          value: "30"           # Wait time after action for Kubernetes stabilization
+        - name: REWARD_LATENCY_WEIGHT
+          value: "10.0"         # Penalty weight for high latency
+        - name: REWARD_REPLICA_COST
+          value: "0.1"          # Cost penalty per replica
+        - name: ENABLE_IMPROVED_REWARDS
+          value: "true"         # Use improved multi-objective reward system
+        
+        # === MULTI-OBJECTIVE REWARD WEIGHTS ===
+        - name: REWARD_PERFORMANCE_WEIGHT
+          value: "0.40"         # Performance component weight (40%)
+        - name: REWARD_RESOURCE_WEIGHT
+          value: "0.30"         # Resource efficiency weight (30%)
+        - name: REWARD_HEALTH_WEIGHT
+          value: "0.20"         # System health weight (20%)
+        - name: REWARD_COST_WEIGHT
+          value: "0.10"         # Cost optimization weight (10%)
+        
+        # === EVALUATION & MONITORING ===
+        - name: EVALUATION_INTERVAL
+          value: "300"          # Evaluation frequency in seconds (5 minutes)
+        - name: ENABLE_EVALUATION_OUTPUTS
+          value: "true"         # Generate evaluation reports and visualizations
+        - name: SAVE_INTERVAL_SECONDS
+          value: "300"          # Model save frequency in seconds (5 minutes)
+        
+        # === DEPLOYMENT CONFIGURATION ===
         - name: POLLING_INTERVAL
           value: "5"
         - name: TARGET_DEPLOYMENT
           value: "consumer"
         - name: TARGET_NAMESPACE
           value: "nimbusguard"
-        - name: STABILIZATION_PERIOD_SECONDS
-          value: "5"
-        - name: REWARD_LATENCY_WEIGHT
-          value: "10.0"
-        - name: REWARD_REPLICA_COST
-          value: "0.1"
         - name: PYTHONUNBUFFERED
           value: "1"
         readinessProbe:

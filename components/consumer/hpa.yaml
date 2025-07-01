@@ -1,0 +1,62 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: consumer-hpa-baseline
+  labels:
+    component: consumer
+    evaluation: baseline
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: consumer
+  minReplicas: 1
+  maxReplicas: 8  # Same max as your DQN system
+  metrics:
+  # CPU-based scaling (primary trigger)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60  # Scale up when CPU > 60%
+  # Memory-based scaling (secondary trigger)  
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale up when memory > 70%
+  # Custom metrics via Prometheus (advanced)
+  - type: Pods
+    pods:
+      metric:
+        name: http_request_duration_seconds
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: consumer
+      target:
+        type: AverageValue
+        averageValue: "200m"  # Scale up when avg response time > 200ms
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60    # Wait 1 min before scaling up
+      selectPolicy: Max
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300   # Wait 5 min before scaling down
+      selectPolicy: Min
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 300
+      - type: Pods
+        value: 1
+        periodSeconds: 300
+---
