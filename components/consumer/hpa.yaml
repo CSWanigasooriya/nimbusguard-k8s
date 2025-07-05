@@ -5,58 +5,58 @@ metadata:
   labels:
     component: consumer
     evaluation: baseline
+    research: "true"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: consumer
   minReplicas: 1
-  maxReplicas: 8  # Same max as your DQN system
+  maxReplicas: 50  # Match KEDA's maxReplicaCount
   metrics:
-  # CPU-based scaling (primary trigger)
+  # CPU-based scaling (matches KEDA's process_cpu_usage_percent threshold of 50%)
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 60  # Scale up when CPU > 60%
-  # Memory-based scaling (secondary trigger)  
+        averageUtilization: 50  # Match KEDA's 50% threshold
+  # Memory-based scaling (matches KEDA's process_memory_usage_mb threshold of 300MB)
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
-        averageUtilization: 70  # Scale up when memory > 70%
-  # Custom metrics via Prometheus (advanced)
-  - type: Pods
-    pods:
-      metric:
-        name: http_request_duration_seconds
-        selector:
-          matchLabels:
-            app.kubernetes.io/name: consumer
-      target:
-        type: AverageValue
-        averageValue: "200m"  # Scale up when avg response time > 200ms
+        averageUtilization: 60  # Approximate 300MB threshold
+  # Custom metrics via Prometheus (commented out - requires custom metrics API)
+  # - type: Pods
+  #   pods:
+  #     metric:
+  #       name: http_request_duration_seconds
+  #       selector:
+  #         matchLabels:
+  #           app.kubernetes.io/name: consumer
+  #     target:
+  #       type: AverageValue
+  #       averageValue: "200m"  # Scale up when avg response time > 200ms
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60    # Wait 1 min before scaling up
+      stabilizationWindowSeconds: 5   # Match KEDA's cooldownPeriod
       selectPolicy: Max
       policies:
       - type: Percent
-        value: 100
-        periodSeconds: 60
+        value: 200                    # Very aggressive (can double replicas)
+        periodSeconds: 15             # Match KEDA's pollingInterval: 30s
       - type: Pods
-        value: 2
-        periodSeconds: 60
+        value: 10                     # Can add up to 10 pods per cycle
+        periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 300   # Wait 5 min before scaling down
+      stabilizationWindowSeconds: 30  # More conservative for stability
       selectPolicy: Min
       policies:
       - type: Percent
-        value: 50
-        periodSeconds: 300
+        value: 50                     # Can halve replicas
+        periodSeconds: 30
       - type: Pods
-        value: 1
-        periodSeconds: 300
----
+        value: 5                      # Remove max 5 pods per cycle
+        periodSeconds: 30
