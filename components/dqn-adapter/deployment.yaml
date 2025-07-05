@@ -62,21 +62,21 @@ spec:
         - name: EPSILON_END
           value: "0.05"   # Final exploration probability
         - name: EPSILON_DECAY
-          value: "0.995"  # Exploration decay rate per decision
+          value: "0.99"  # Faster decay for 6-hour research evaluation
         
         # === DQN TRAINING HYPERPARAMETERS ===
         - name: GAMMA
           value: "0.99"     # Discount factor for future rewards
         - name: LR
-          value: "0.0001"   # Learning rate (1e-4)
+          value: "0.0003"   # Increased learning rate for faster adaptation
         - name: MEMORY_CAPACITY
           value: "50000"    # Replay buffer size
         - name: MIN_BATCH_SIZE
-          value: "8"        # Minimum training batch size
+          value: "4"        # Reduced minimum for faster training start
         - name: BATCH_SIZE
-          value: "32"       # Default training batch size
+          value: "16"       # Reduced for more frequent training
         - name: TARGET_BATCH_SIZE
-          value: "64"       # Target training batch size
+          value: "32"       # Reduced target batch size
         - name: TARGET_UPDATE_INTERVAL
           value: "1000"     # Steps between target network updates
         
