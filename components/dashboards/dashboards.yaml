@@ -1,0 +1,725 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    grafana_dashboard: "1"
+data:
+  # Dashboard provisioning configuration
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+  
+  # General research dashboard - DQN vs HPA vs KEDA comparison
+  nimbusguard-research.json: |
+    {
+      "id": null,
+      "title": "NimbusGuard Research - DQN vs HPA vs KEDA Comparison",
+      "tags": ["nimbusguard", "research", "dqn", "hpa", "keda", "autoscaling"],
+      "timezone": "browser",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Replica Count Evolution",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(kube_deployment_status_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"})",
+              "legendFormat": "Current Replicas",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(kube_deployment_spec_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"})",
+              "legendFormat": "Desired Replicas",
+              "refId": "B"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "barAlignment": 0,
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "spanNulls": false
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "title": "Response Time Comparison (P95)",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{instance=\"consumer:8000\"}[5m])) by (le))",
+              "legendFormat": "P95 Response Time",
+              "refId": "A"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "s"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "HTTP Request Rate",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{instance=\"consumer:8000\"}[5m]))",
+              "legendFormat": "Request Rate",
+              "refId": "A"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "reqps"
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "System Resource Usage",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(process_cpu_seconds_total{instance=\"consumer:8000\"}[5m])) * 100",
+              "legendFormat": "CPU Usage %",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(process_resident_memory_bytes{instance=\"consumer:8000\"}) / 1024 / 1024",
+              "legendFormat": "Memory Usage MB",
+              "refId": "B"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short"
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "SLA Compliance (Sub-500ms)",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "(sum(rate(http_request_duration_seconds_bucket{le=\"0.5\", instance=\"consumer:8000\"}[5m])) / sum(rate(http_request_duration_seconds_count{instance=\"consumer:8000\"}[5m]))) * 100",
+              "legendFormat": "SLA Compliance %",
+              "refId": "A"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 90
+                  },
+                  {
+                    "color": "green",
+                    "value": 95
+                  }
+                ]
+              },
+              "unit": "percent"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "title": "Scaling Events Timeline",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(changes(kube_deployment_spec_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"}[5m]))",
+              "legendFormat": "Scaling Events (5m)",
+              "refId": "A"
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 16
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "red",
+                "mode": "fixed"
+              },
+              "custom": {
+                "drawStyle": "bars",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 0.8,
+                "gradientMode": "none",
+                "spanNulls": false
+              },
+              "unit": "short"
+            }
+          }
+        }
+      ],
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "refresh": "5s",
+      "schemaVersion": 30,
+      "version": 1,
+      "links": [],
+      "templating": {
+        "list": []
+      },
+      "annotations": {
+        "list": []
+      }
+    }
+  
+  # DQN research dashboard - AI/ML specific metrics
+  dqn-research-dashboard.json: |
+    {
+      "id": null,
+      "title": "NimbusGuard DQN Research Dashboard",
+      "tags": ["nimbusguard", "dqn", "research", "ai", "autoscaling"],
+      "style": "dark",
+      "timezone": "browser",
+      "refresh": "5s",
+      "schemaVersion": 27,
+      "version": 1,
+      "panels": [
+        {
+          "id": 1,
+          "title": "DQN Desired vs Current Replicas",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(nimbusguard_dqn_desired_replicas)",
+              "legendFormat": "DQN Desired Replicas",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(nimbusguard_current_replicas)",
+              "legendFormat": "Current Replicas",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(kube_deployment_spec_replicas{deployment=\"consumer\",namespace=\"nimbusguard\"})",
+              "legendFormat": "HPA Target Replicas",
+              "refId": "C"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "showPoints": "never",
+                "pointSize": 5
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "DQN Training Loss",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "rate(dqn_training_loss_total[5m])",
+              "legendFormat": "Training Loss (5m rate)",
+              "refId": "A"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 20,
+                "gradientMode": "opacity"
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "DQN Exploration Strategy",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "dqn_epsilon_value",
+              "legendFormat": "Epsilon (Exploration Rate)",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(dqn_exploration_actions_total[5m])",
+              "legendFormat": "Exploration Actions/sec",
+              "refId": "B"
+            },
+            {
+              "expr": "rate(dqn_exploitation_actions_total[5m])",
+              "legendFormat": "Exploitation Actions/sec",
+              "refId": "C"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Experience Replay Buffer",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "dqn_replay_buffer_size",
+              "legendFormat": "Buffer Size",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(dqn_experiences_added_total[5m])",
+              "legendFormat": "Experiences Added/sec",
+              "refId": "B"
+            },
+            {
+              "expr": "redis_connected_clients{instance=~\".*redis.*\"}",
+              "legendFormat": "Redis Connected Clients",
+              "refId": "C"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 15
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "DQN Action Distribution",
+          "type": "piechart",
+          "targets": [
+            {
+              "expr": "increase(dqn_action_scale_up_total[1h])",
+              "legendFormat": "Scale Up",
+              "refId": "A"
+            },
+            {
+              "expr": "increase(dqn_action_scale_down_total[1h])",
+              "legendFormat": "Scale Down",
+              "refId": "B"
+            },
+            {
+              "expr": "increase(dqn_action_keep_same_total[1h])",
+              "legendFormat": "Keep Same",
+              "refId": "C"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16},
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": ["lastNotNull"],
+              "fields": ""
+            },
+            "pieType": "pie",
+            "tooltip": {"mode": "single"},
+            "legend": {"displayMode": "visible", "placement": "bottom"},
+            "displayLabels": ["name", "value"]
+          }
+        },
+        {
+          "id": 6,
+          "title": "LSTM Feature Analysis",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "dqn_lstm_next_30sec_pressure",
+              "legendFormat": "30sec Pressure Forecast",
+              "refId": "A"
+            },
+            {
+              "expr": "dqn_lstm_next_60sec_pressure",
+              "legendFormat": "60sec Pressure Forecast",
+              "refId": "B"
+            },
+            {
+              "expr": "dqn_lstm_trend_velocity",
+              "legendFormat": "Trend Velocity",
+              "refId": "C"
+            },
+            {
+              "expr": "dqn_lstm_pattern_confidence",
+              "legendFormat": "Pattern Confidence",
+              "refId": "D"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "gridPos": {"h": 8, "w": 16, "x": 8, "y": 16},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "fillOpacity": 5
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "DQN Q-Value Distribution",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "dqn_q_value_scale_up",
+              "legendFormat": "Q-Value Scale Up",
+              "refId": "A"
+            },
+            {
+              "expr": "dqn_q_value_scale_down",
+              "legendFormat": "Q-Value Scale Down",
+              "refId": "B"
+            },
+            {
+              "expr": "dqn_q_value_keep_same",
+              "legendFormat": "Q-Value Keep Same",
+              "refId": "C"
+            }
+          ],
+          "unit": "short",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            }
+          }
+        },
+        {
+          "id": 8,
+          "title": "Reward Analysis",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "dqn_reward_total",
+              "legendFormat": "Total Reward",
+              "refId": "A"
+            },
+            {
+              "expr": "dqn_reward_performance_component",
+              "legendFormat": "Performance Component (40%)",
+              "refId": "B"
+            },
+            {
+              "expr": "dqn_reward_resource_component",
+              "legendFormat": "Resource Component (30%)",
+              "refId": "C"
+            },
+            {
+              "expr": "dqn_reward_health_component",
+              "legendFormat": "Health Component (20%)",
+              "refId": "D"
+            },
+            {
+              "expr": "dqn_reward_cost_component",
+              "legendFormat": "Cost Component (10%)",
+              "refId": "E"
+            }
+          ],
+          "unit": "short",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 5
+              }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "DQN Performance Metrics",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "dqn_training_steps_total",
+              "legendFormat": "Training Steps",
+              "refId": "A"
+            },
+            {
+              "expr": "dqn_decision_confidence_avg",
+              "legendFormat": "Avg Decision Confidence",
+              "refId": "B"
+            },
+            {
+              "expr": "dqn_model_accuracy",
+              "legendFormat": "Model Accuracy",
+              "refId": "C"
+            },
+            {
+              "expr": "rate(dqn_decisions_total[5m])",
+              "legendFormat": "Decisions/sec",
+              "refId": "D"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 32},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "mappings": [],
+              "thresholds": {
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 80}
+                ]
+              },
+              "unit": "short"
+            }
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": ["lastNotNull"],
+              "fields": ""
+            },
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 10,
+          "title": "Redis Experience Replay Monitoring",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{instance=~\".*redis.*\"}",
+              "legendFormat": "Redis Memory Used",
+              "refId": "A"
+            },
+            {
+              "expr": "redis_commands_processed_total{instance=~\".*redis.*\"}",
+              "legendFormat": "Redis Commands Processed",
+              "refId": "B"
+            },
+            {
+              "expr": "redis_keyspace_hits_total{instance=~\".*redis.*\"}",
+              "legendFormat": "Redis Keyspace Hits",
+              "refId": "C"
+            },
+            {
+              "expr": "redis_keyspace_misses_total{instance=~\".*redis.*\"}",
+              "legendFormat": "Redis Keyspace Misses",
+              "refId": "D"
+            }
+          ],
+          "unit": "bytes",
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 32},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            }
+          }
+        },
+        {
+          "id": 11,
+          "title": "DQN vs HPA vs KEDA Comparison",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(nimbusguard_dqn_desired_replicas)",
+              "legendFormat": "DQN Recommendation",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(kube_deployment_spec_replicas{deployment=\"consumer\",namespace=\"nimbusguard\"})",
+              "legendFormat": "Current Deployment",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(kube_horizontalpodautoscaler_spec_target_metric{hpa=\"consumer-hpa\",namespace=\"nimbusguard\"})",
+              "legendFormat": "HPA Target",
+              "refId": "C"
+            },
+            {
+              "expr": "sum(keda_scaledobject_replicas{scaledobject=\"consumer-scaledobject\",namespace=\"nimbusguard\"})",
+              "legendFormat": "KEDA Target",
+              "refId": "D"
+            }
+          ],
+          "unit": "short",
+          "min": 0,
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 38},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 3,
+                "fillOpacity": 5
+              }
+            }
+          }
+        },
+        {
+          "id": 12,
+          "title": "Feature Architecture Overview",
+          "type": "text",
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 46},
+          "options": {
+            "mode": "markdown",
+            "content": "# DQN Feature Architecture\n\n## Raw Base Features (5)\n- **HTTP Request Duration Bucket**: Traffic pattern analysis\n- **Process Resident Memory**: Memory resource utilization\n- **Process CPU Seconds**: CPU resource utilization\n- **Scrape Samples**: Health monitoring metric\n- **HTTP Response Size**: Response pattern analysis\n\n## LSTM Temporal Features (6)\n- **Next 30sec Pressure**: Proactive load forecasting\n- **Next 60sec Pressure**: Extended load forecasting\n- **Trend Velocity**: Rate of change analysis\n- **Pattern Type Spike**: Spike pattern probability\n- **Pattern Type Gradual**: Gradual pattern probability\n- **Pattern Type Cyclical**: Cyclical pattern probability\n\n**Total Features**: 11 (5 Raw + 6 LSTM)\n**Architecture**: Scientifically validated, balanced selection\n**Max Correlation**: 0.741 (No problematic correlations)"
+          }
+        }
+      ],
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timepicker": {
+        "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+      },
+      "annotations": {
+        "list": [
+          {
+            "name": "DQN Scaling Events",
+            "enable": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "query": "changes(nimbusguard_dqn_desired_replicas[1m]) > 0",
+            "step": "10s"
+          }
+        ]
+      }
+    } 

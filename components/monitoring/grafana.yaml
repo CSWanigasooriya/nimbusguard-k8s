@@ -31,6 +31,10 @@ spec:
         volumeMounts:
         - name: grafana-config
           mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
         resources:
           requests:
             memory: "256Mi"
@@ -42,6 +46,9 @@ spec:
       - name: grafana-config
         configMap:
           name: grafana-config
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
 ---
 apiVersion: v1
 kind: ConfigMap

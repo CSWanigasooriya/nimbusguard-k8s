@@ -15,8 +15,8 @@ spec:
       annotations:
         # This annotation is crucial. It tells Alloy/Prometheus to scrape this pod.
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8001"
-        prometheus.io/path: "/healthz"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: dqn-adapter-sa
       containers:
@@ -25,8 +25,6 @@ spec:
         image: nimbusguard-dqn-adapter:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8001
-          name: http
         - containerPort: 8080
           name: metrics
         env:
@@ -56,7 +54,7 @@ spec:
         - name: REASONING_LOG_LEVEL
           value: "INFO"  # INFO for production, DEBUG for development
         - name: ENABLE_LLM_VALIDATION
-          value: "true"  # Enable LLM validation (set to false if permission issues)
+          value: "false"  # Disabled for speed optimization
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
@@ -96,7 +94,7 @@ spec:
         
         # === REWARD SYSTEM CONFIGURATION ===
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "30"           # Wait time after action for Kubernetes stabilization
+          value: "5"            # Reduced for speed optimization (was 30s)
         - name: REWARD_LATENCY_WEIGHT
           value: "10.0"         # Penalty weight for high latency
         - name: REWARD_REPLICA_COST
@@ -124,7 +122,7 @@ spec:
         
         # === DEPLOYMENT CONFIGURATION ===
         - name: POLLING_INTERVAL
-          value: "5"
+          value: "3"            # Very fast polling for competitive response times
         - name: TARGET_DEPLOYMENT
           value: "consumer"
         - name: TARGET_NAMESPACE
@@ -138,7 +136,7 @@ spec:
             - "5"
             - curl
             - "-f"
-            - "http://localhost:8001/healthz"
+            - "http://localhost:8080/healthz"
           initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 10
@@ -150,7 +148,7 @@ spec:
             - "5"
             - curl
             - "-f"
-            - "http://localhost:8001/healthz"
+            - "http://localhost:8080/healthz"
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10

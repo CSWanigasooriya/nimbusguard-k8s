@@ -2,10 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
 resources:
-  - deployment.yaml
-  - service.yaml
-  # - hpa.yaml
-
+  - dashboards.yaml
+ 
 labels:
   - pairs:
-      component: consumer
+      component: dashboards 
