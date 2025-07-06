@@ -68,6 +68,23 @@ spec:
   # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
   cooldownPeriod: 0                # NO cooldown period - immediate scaling
   
+  # AGGRESSIVE SCALING BEHAVIOR - Remove all stabilization delays
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0    # No stabilization delay for scale up
+          policies:
+            - type: Percent
+              value: 900                   # Allow 900% increase (9x) per period
+              periodSeconds: 1             # Every 1 second
+        scaleDown:
+          stabilizationWindowSeconds: 0    # No stabilization delay for scale down  
+          policies:
+            - type: Percent
+              value: 100                   # Allow 100% decrease per period
+              periodSeconds: 1             # Every 1 second
+  
   triggers:
     # TRUE PUSH-BASED DQN Control via gRPC External Push Scaler (Instantaneous!)
     - type: external-push

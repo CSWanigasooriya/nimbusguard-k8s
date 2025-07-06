@@ -33,13 +33,13 @@ data:
           "type": "timeseries",
           "targets": [
             {
-              "expr": "sum(kube_deployment_status_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"})",
+              "expr": "nimbusguard_current_replicas",
               "legendFormat": "Current Replicas",
               "refId": "A"
             },
             {
-              "expr": "sum(kube_deployment_spec_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"})",
-              "legendFormat": "Desired Replicas",
+              "expr": "nimbusguard_dqn_desired_replicas",
+              "legendFormat": "DQN Desired Replicas",
               "refId": "B"
             }
           ],
@@ -206,8 +206,8 @@ data:
           "type": "timeseries",
           "targets": [
             {
-              "expr": "sum(changes(kube_deployment_spec_replicas{deployment=\"consumer\", namespace=\"nimbusguard\"}[5m]))",
-              "legendFormat": "Scaling Events (5m)",
+              "expr": "changes(nimbusguard_dqn_desired_replicas[5m])",
+              "legendFormat": "DQN Decision Changes (5m)",
               "refId": "A"
             }
           ],
