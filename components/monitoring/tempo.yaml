@@ -28,11 +28,11 @@ spec:
           mountPath: /tmp/tempo
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
             memory: "512Mi"
             cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "400m"  # Increased for real-time trace processing
       volumes:
       - name: tempo-config
         configMap:
@@ -59,16 +59,16 @@ data:
               endpoint: 0.0.0.0:4318
     
     ingester:
-      trace_idle_period: 10s
-      max_block_bytes: 1_000_000
-      max_block_duration: 5m
+      trace_idle_period: 1s      # Real-time trace processing
+      max_block_bytes: 500_000   # Smaller blocks for faster processing
+      max_block_duration: 1m     # Faster block creation
     
     compactor:
       compaction:
-        compaction_window: 1h
-        max_compaction_objects: 1000000
-        block_retention: 1h
-        compacted_block_retention: 10m
+        compaction_window: 5m     # More frequent compaction
+        max_compaction_objects: 500000
+        block_retention: 30m      # Faster cleanup for real-time processing
+        compacted_block_retention: 5m
     
     storage:
       trace:

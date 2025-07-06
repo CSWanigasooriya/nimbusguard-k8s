@@ -50,8 +50,8 @@
 #           quantile_over_time(0.95, process_resident_memory_bytes{instance="consumer:8000"}[5m]) / 1024 / 1024 
 
 ---
-# DQN-Driven Intelligent ScaledObject - SPEED OPTIMIZED
-# Fast polling with disabled LLM validation for competitive response times
+# DQN-Driven Intelligent ScaledObject - PUSH-BASED REAL-TIME SCALING
+# True push-based scaling for instantaneous DQN decisions without polling delays
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -60,21 +60,16 @@ metadata:
     app: nimbusguard
     component: keda-dqn
     environment: development
-    research: "baseline-matched"
+    research: "push-based-realtime"
 spec:
   scaleTargetRef:
     name: consumer
-  minReplicaCount: 1
-  maxReplicaCount: 50              # Match baseline
-  # SPEED OPTIMIZED: Fast polling for competitive response times
-  pollingInterval: 5               # Fast polling (was 30s baseline)
-  cooldownPeriod: 1                # Minimal cooldown (was 5s baseline)
   
-  # Using default scaling behavior for maximum speed
-  # Custom behavior removed to eliminate any additional delays
+  # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
+  cooldownPeriod: 0                # NO cooldown period - immediate scaling
   
   triggers:
-    # TRUE Dynamic DQN Control via gRPC External Scaler (No Artificial Baselines!)
-    - type: external
+    # TRUE PUSH-BASED DQN Control via gRPC External Push Scaler (Instantaneous!)
+    - type: external-push
       metadata:
         scalerAddress: "dqn-adapter.nimbusguard.svc.cluster.local:9091" 

@@ -268,20 +268,30 @@ data:
           "id": 1,
           "title": "DQN Desired vs Current Replicas",
           "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "targets": [
-                    {
-          "expr": "sum(nimbusguard_dqn_desired_replicas)",
-          "legendFormat": "DQN Desired Replicas",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(nimbusguard_current_replicas)",
-          "legendFormat": "Current Replicas",
-          "refId": "B"
-        }
+            {
+              "expr": "nimbusguard_dqn_desired_replicas",
+              "legendFormat": "DQN Desired Replicas",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            },
+            {
+              "expr": "nimbusguard_current_replicas",
+              "legendFormat": "Current Replicas",
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
           ],
-          "unit": "short",
-          "min": 0,
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
           "fieldConfig": {
             "defaults": {
@@ -294,7 +304,21 @@ data:
                 "gradientMode": "none",
                 "showPoints": "never",
                 "pointSize": 5
-              }
+              },
+              "unit": "short",
+              "min": 0
+            }
+          },
+          "options": {
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            },
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "values": ["current"]
             }
           }
         },
@@ -400,58 +424,140 @@ data:
         },
         {
           "id": 5,
-          "title": "DQN Action Distribution",
-          "type": "piechart",
+          "title": "DQN Action Distribution Over Time",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "targets": [
             {
               "expr": "dqn_action_scale_up_total",
               "legendFormat": "Scale Up",
-              "refId": "A"
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
             },
             {
               "expr": "dqn_action_scale_down_total",
               "legendFormat": "Scale Down",
-              "refId": "B"
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
             },
             {
               "expr": "dqn_action_keep_same_total",
               "legendFormat": "Keep Same",
-              "refId": "C"
-            }
-          ],
-          "transformations": [
-            {
-              "id": "reduce",
-              "options": {
-                "reducers": ["lastNotNull"]
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
               }
             }
           ],
-          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
               "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "barAlignment": 0,
+                "lineWidth": 2,
+                "fillOpacity": 15,
+                "gradientMode": "none",
+                "spanNulls": false,
+                "insertNulls": false,
+                "showPoints": "auto",
+                "pointSize": 5,
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "axisColorMode": "text",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "axisCenteredZero": false,
                 "hideFrom": {
+                  "legend": false,
                   "tooltip": false,
-                  "vis": false,
-                  "legend": false
+                  "vis": false
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
                 }
+              },
+              "mappings": [],
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Scale Up"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Scale Down"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Keep Same"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
               }
-            }
+            ]
           },
           "options": {
-            "reduceOptions": {
-              "values": false,
-              "calcs": ["lastNotNull"],
-              "fields": ""
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
             },
-            "pieType": "pie",
-            "tooltip": {"mode": "single"},
-            "legend": {"displayMode": "visible", "placement": "bottom"},
-            "displayLabels": ["name", "value", "percent"]
-          },
-          "maxDataPoints": 100
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["lastNotNull", "max"],
+              "values": ["value"]
+            }
+          }
         },
         {
           "id": 6,
@@ -482,7 +588,7 @@ data:
           "unit": "short",
           "min": 0,
           "max": 1,
-          "gridPos": {"h": 8, "w": 16, "x": 8, "y": 16},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},

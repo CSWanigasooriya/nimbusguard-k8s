@@ -49,9 +49,9 @@ spec:
         - name: BEYLA_LOG_LEVEL
           value: "debug"
         - name: BEYLA_METRICS_INTERVAL
-          value: "30s"
+          value: "1s"   # Real-time metrics collection
         - name: BEYLA_BPF_BATCH_TIMEOUT
-          value: "100ms"
+          value: "10ms" # Ultra-fast eBPF batch processing
         - name: BEYLA_DISCOVERY_SERVICES
           value: "true"
         - name: BEYLA_ROUTES_MATCHER
@@ -63,11 +63,11 @@ spec:
           value: "true"
         resources:
           requests:
-            memory: "100Mi"
-            cpu: "100m"
-          limits:
             memory: "200Mi"
             cpu: "200m"
+          limits:
+            memory: "400Mi"
+            cpu: "400m"  # Increased for real-time eBPF processing
         volumeMounts:
         - name: proc
           mountPath: /host/proc

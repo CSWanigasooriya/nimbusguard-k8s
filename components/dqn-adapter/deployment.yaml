@@ -97,7 +97,7 @@ spec:
         
         # === REWARD SYSTEM CONFIGURATION ===
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "5"            # Reduced for speed optimization (was 30s)
+          value: "30"            # Reduced for speed optimization (was 30s)
         - name: REWARD_LATENCY_WEIGHT
           value: "10.0"         # Penalty weight for high latency
         - name: REWARD_REPLICA_COST

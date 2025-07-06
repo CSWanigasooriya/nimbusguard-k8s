@@ -73,7 +73,7 @@ data:
       jsonData:
         httpMethod: POST
         prometheusType: Prometheus
-        prometheusVersion: 2.40.0
+        prometheusVersion: 2.55.1
         cacheLevel: 'High'
     - name: Loki
       type: loki
