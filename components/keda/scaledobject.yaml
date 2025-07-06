@@ -65,29 +65,12 @@ spec:
   scaleTargetRef:
     name: consumer
   
-  # REPLICA LIMITS - Allow scaling beyond default limits
+  # REPLICA LIMITS - Allow scaling beyond default limits  
   minReplicaCount: 1
-  maxReplicaCount: 100
+  maxReplicaCount: 50
   
   # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
   cooldownPeriod: 0                # NO cooldown period - immediate scaling
-  
-  # AGGRESSIVE SCALING BEHAVIOR - Remove all stabilization delays
-  advanced:
-    horizontalPodAutoscalerConfig:
-      behavior:
-        scaleUp:
-          stabilizationWindowSeconds: 0    # No stabilization delay for scale up
-          policies:
-            - type: Percent
-              value: 900                   # Allow 900% increase (9x) per period
-              periodSeconds: 1             # Every 1 second
-        scaleDown:
-          stabilizationWindowSeconds: 0    # No stabilization delay for scale down  
-          policies:
-            - type: Percent
-              value: 100                   # Allow 100% decrease per period
-              periodSeconds: 1             # Every 1 second
   
   triggers:
     # DQN Control via gRPC External Push Scaler (True push-based real-time streaming)
