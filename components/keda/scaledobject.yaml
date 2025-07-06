@@ -67,7 +67,7 @@ spec:
   
   # REPLICA LIMITS - Allow scaling beyond default limits
   minReplicaCount: 1
-  maxReplicaCount: 50
+  maxReplicaCount: 100
   
   # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
   cooldownPeriod: 0                # NO cooldown period - immediate scaling
