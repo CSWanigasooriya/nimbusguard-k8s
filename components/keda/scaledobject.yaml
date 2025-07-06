@@ -74,10 +74,7 @@ spec:
   # Custom behavior removed to eliminate any additional delays
   
   triggers:
-    # DQN decision integration via KEDA Metrics API
-    - type: metrics-api
+    # TRUE Dynamic DQN Control via gRPC External Scaler (No Artificial Baselines!)
+    - type: external
       metadata:
-        targetValue: "1"                 # Scale to match DQN's desired replica count
-        activationTargetValue: "0.1"     # Activate scaling when DQN suggests > 0.1 replicas  
-        url: "http://dqn-adapter.nimbusguard.svc:8080/api/v1/dqn-metrics"
-        valueLocation: "dqn.desired_replicas"  # GJSON path to extract the metric value 
+        scalerAddress: "dqn-adapter.nimbusguard.svc.cluster.local:9091" 

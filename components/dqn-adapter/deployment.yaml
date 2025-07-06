@@ -27,13 +27,16 @@ spec:
         ports:
         - containerPort: 8080
           name: metrics
+        - containerPort: 9091
+          name: grpc
         env:
-        # OpenAI API key for LLM validation
+        # OpenAI API key for LLM validation (only required when ENABLE_LLM_VALIDATION=true)
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: openai-api-key # Assumes a secret named 'openai-api-key' exists
+              name: openai-api-key
               key: key
+              optional: true  # Optional - only needed when LLM validation is enabled
         # Service URLs
         - name: PROMETHEUS_URL
           value: "http://prometheus.nimbusguard.svc:9090"
@@ -52,9 +55,9 @@ spec:
         - name: ENABLE_DETAILED_REASONING
           value: "true"  # Enable comprehensive AI reasoning logs
         - name: REASONING_LOG_LEVEL
-          value: "INFO"  # INFO for production, DEBUG for development
+          value: "DEBUG"  # DEBUG for full reasoning text visibility
         - name: ENABLE_LLM_VALIDATION
-          value: "false"  # Disabled for speed optimization
+          value: "false"  # Enabled for enhanced AI reasoning validation
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
@@ -121,8 +124,6 @@ spec:
           value: "300"          # Model save frequency in seconds (5 minutes)
         
         # === DEPLOYMENT CONFIGURATION ===
-        - name: POLLING_INTERVAL
-          value: "3"            # Very fast polling for competitive response times
         - name: TARGET_DEPLOYMENT
           value: "consumer"
         - name: TARGET_NAMESPACE
