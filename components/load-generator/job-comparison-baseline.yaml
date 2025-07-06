@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-test-comparison-baseline
+  labels:
+    load-test: comparison-baseline
+    experiment: hpa-vs-dqn
+spec:
+  template:
+    metadata:
+      labels:
+        load-test: comparison-baseline
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-consumer
+        image: curlimages/curl:8.5.0
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for consumer service to be ready..."
+          until curl -f -s http://consumer:8000/health > /dev/null; do
+            echo "Consumer not ready, waiting 5 seconds..."
+            sleep 5
+          done
+          echo "Consumer service is ready!"
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "10m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
+      containers:
+      - name: load-generator
+        image: nimbusguard-generator:latest
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c']
+        args:
+        - |-
+          echo "🎯 Starting HPA vs DQN Comparison Load Test"
+          echo "📊 Deterministic pattern with seed=12345 for 30 minutes"
+          echo "🔄 This exact pattern will be used for both HPA and DQN tests"
+          echo ""
+          
+          python load_generator.py \
+            --url=http://consumer:8000 \
+            --test=comparison_pattern \
+            --seed=12345 \
+            --duration=1800 \
+            --monitor \
+            --cleanup
+            
+          echo ""
+          echo "✅ Comparison baseline test completed"
+          echo "📈 Check scaling behavior in Grafana/Prometheus"
+          echo "🔍 Monitor with: kubectl get hpa,scaledobjects,pods -n nimbusguard"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        env:
+        - name: COMPARISON_MODE
+          value: "true"
+        - name: LOAD_PATTERN_SEED
+          value: "12345"
+  backoffLimit: 1
+  activeDeadlineSeconds: 2000  # 33+ minutes max 
