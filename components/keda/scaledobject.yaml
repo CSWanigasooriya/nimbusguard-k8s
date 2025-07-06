@@ -90,8 +90,8 @@ spec:
               periodSeconds: 1             # Every 1 second
   
   triggers:
-    # TRUE PUSH-BASED DQN Control via gRPC External Push Scaler (Instantaneous!)
+    # DQN Control via gRPC External Push Scaler (True push-based real-time streaming)
     - type: external-push
-      metricType: Value                                                      # Use Value instead of AverageValue for direct scaling
+      metricType: AverageValue                                               # Use AverageValue for workload-based scaling
       metadata:
         scalerAddress: "dqn-adapter.nimbusguard.svc.cluster.local:9091" 

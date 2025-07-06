@@ -34,7 +34,7 @@ spec:
       containers:
       - name: load-generator
         image: nimbusguard-generator:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command: ['sh', '-c']
         args:
         - |-
