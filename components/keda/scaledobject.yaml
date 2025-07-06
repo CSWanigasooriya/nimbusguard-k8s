@@ -65,6 +65,10 @@ spec:
   scaleTargetRef:
     name: consumer
   
+  # REPLICA LIMITS - Allow scaling beyond default limits
+  minReplicaCount: 1
+  maxReplicaCount: 50
+  
   # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
   cooldownPeriod: 0                # NO cooldown period - immediate scaling
   
@@ -88,5 +92,6 @@ spec:
   triggers:
     # TRUE PUSH-BASED DQN Control via gRPC External Push Scaler (Instantaneous!)
     - type: external-push
+      metricType: Value                                                      # Use Value instead of AverageValue for direct scaling
       metadata:
         scalerAddress: "dqn-adapter.nimbusguard.svc.cluster.local:9091" 
