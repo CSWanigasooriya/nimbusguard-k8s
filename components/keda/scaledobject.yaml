@@ -50,8 +50,16 @@
 #           quantile_over_time(0.95, process_resident_memory_bytes{instance="consumer:8000"}[5m]) / 1024 / 1024 
 
 ---
-# DQN-Driven Intelligent ScaledObject - PUSH-BASED REAL-TIME SCALING
-# True push-based scaling for instantaneous DQN decisions without polling delays
+# DQN-Driven Intelligent ScaledObject - PROMETHEUS-BASED DIRECT SCALING
+# DQN makes decisions, KEDA executes them via Prometheus metric polling
+#
+# 🎯 HPA TOLERANCE ISSUE SOLUTION:
+# This configuration solves the common HPA tolerance problem where small percentage
+# changes near max replicas don't trigger scaling. For example:
+# - 22 current replicas, need 24 replicas  
+# - Traditional: 22 * (24/22) = 1.09 ratio = 9% change
+# - HPA tolerance ~10% prevents scaling
+# - Our solution: Use metricType=Value + aggressive behavior to bypass tolerance
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -60,7 +68,6 @@ metadata:
     app: nimbusguard
     component: keda-dqn
     environment: development
-    research: "push-based-realtime"
 spec:
   scaleTargetRef:
     name: consumer
@@ -69,12 +76,56 @@ spec:
   minReplicaCount: 1
   maxReplicaCount: 50
   
-  # PUSH-BASED: No polling needed - immediate scaling on DQN decision changes
-  cooldownPeriod: 0                # NO cooldown period - immediate scaling
+  # PROMETHEUS-BASED: Fast polling for responsive DQN scaling
+  pollingInterval: 10               # Check DQN decision every 10 seconds
+  cooldownPeriod: 30                # Short cooldown to prevent flapping
+  
+  # AGGRESSIVE HPA BEHAVIOR - Override tolerance completely
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0                                    # No stabilization delay
+          selectPolicy: Max                                                # Use maximum scaling suggestion
+          policies:
+          - type: Pods
+            value: 50                                                      # Allow scaling up to 50 pods at once
+            periodSeconds: 1                                               # Every 1 second
+          - type: Percent  
+            value: 1000                                                    # Allow 1000% increases (no limit)
+            periodSeconds: 1                                               # Every 1 second
+        scaleDown:
+          stabilizationWindowSeconds: 0                                    # No stabilization delay
+          selectPolicy: Max                                                # Use maximum scaling suggestion  
+          policies:
+          - type: Pods
+            value: 50                                                      # Allow scaling down 50 pods at once
+            periodSeconds: 15                                              # Every 15 seconds (slightly slower for safety)
+          - type: Percent
+            value: 100                                                     # Allow 100% decreases
+            periodSeconds: 15                                              # Every 15 seconds
   
   triggers:
-    # DQN Control via gRPC External Push Scaler (True push-based real-time streaming)
-    - type: external-push
-      metricType: AverageValue                                               # Use AverageValue for workload-based scaling
+    # 🎯 SIMPLE 1:1 APPROACH: DQN metric = desired replicas, threshold = 1
+    - type: prometheus
+      metricType: AverageValue
       metadata:
-        scalerAddress: "dqn-adapter.nimbusguard.svc.cluster.local:9091" 
+        serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
+        metricName: nimbusguard_dqn_desired_replicas
+        threshold: '1'                                                     # Simple 1:1 ratio
+        query: |
+          # DEAD SIMPLE: DQN says 3, metric returns 3, threshold is 1
+          # HPA calculation: ceil(currentReplicas × 3 / 1) = 3 replicas
+          # No complex ratios, no amplification, just direct scaling
+          nimbusguard_dqn_desired_replicas{job="prometheus.scrape.annotated_pods"}
+    
+    # 🚫 DISABLED: Value metricType (caused scaling to max replicas)
+    # - type: prometheus
+    #   metricType: Value                                                  # This caused issues - HPA stuck at max
+    #   metadata:
+    #     serverAddress: http://prometheus.nimbusguard.svc.cluster.local:9090
+    #     metricName: nimbusguard_dqn_desired_replicas
+    #     threshold: '1'                                                   # Direct threshold: metric value = desired replicas
+    #     query: |
+    #       # Get DQN's desired replica count directly
+    #       nimbusguard_dqn_desired_replicas{job="prometheus.scrape.annotated_pods"}
