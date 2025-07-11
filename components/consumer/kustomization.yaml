@@ -4,7 +4,7 @@ kind: Component
 resources:
   - deployment.yaml
   - service.yaml
-  # - hpa.yaml
+  - hpa-baseline.yaml
 
 labels:
   - pairs:

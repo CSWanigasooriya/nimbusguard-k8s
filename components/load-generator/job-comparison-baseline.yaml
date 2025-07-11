@@ -1,15 +1,15 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: load-test-comparison-baseline
+  name: load-test-baseline
   labels:
-    load-test: comparison-baseline
-    experiment: hpa-vs-dqn
+    load-test: baseline
+    experiment: scaling-comparison
 spec:
   template:
     metadata:
       labels:
-        load-test: comparison-baseline
+        load-test: baseline
     spec:
       restartPolicy: Never
       initContainers:
@@ -38,23 +38,24 @@ spec:
         command: ['sh', '-c']
         args:
         - |-
-          echo "🎯 Starting HPA vs DQN Comparison Load Test"
-          echo "📊 Deterministic pattern with seed=12345 for 30 minutes"
-          echo "🔄 This exact pattern will be used for both HPA and DQN tests"
+          echo "🎯 Starting Production-Like Baseline Comparison Load Test"
+          echo "🔥 Fire-and-forget mode: Pure async, no response waiting"
+          echo "📊 30-minute phased pattern optimized for scaling system evaluation"
           echo ""
           
           python load_generator.py \
             --url=http://consumer:8000 \
-            --test=comparison_pattern \
-            --seed=12345 \
-            --duration=1800 \
-            --monitor \
-            --cleanup
+            --test-name="Evaluation-Aligned Baseline Comparison Test" \
+            --description="Production-like load pattern with fire-and-forget mode" \
+            --fire-and-forget \
+            --async-mode \
+            --seed=12345
             
           echo ""
-          echo "✅ Comparison baseline test completed"
+          echo "✅ Production-like baseline test completed"
+          echo "🔥 All requests fired without waiting for responses"
           echo "📈 Check scaling behavior in Grafana/Prometheus"
-          echo "🔍 Monitor with: kubectl get hpa,scaledobjects,pods -n nimbusguard"
+          echo "🔍 Monitor with: kubectl get hpa,pods -n nimbusguard"
         resources:
           requests:
             memory: "128Mi"
@@ -68,4 +69,4 @@ spec:
         - name: LOAD_PATTERN_SEED
           value: "12345"
   backoffLimit: 1
-  activeDeadlineSeconds: 2000  # 33+ minutes max 
+  activeDeadlineSeconds: 2100  # 35 minutes max 

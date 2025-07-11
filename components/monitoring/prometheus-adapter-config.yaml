@@ -1,0 +1,116 @@
+# ============================================================================
+# PROMETHEUS ADAPTER CONFIGURATION
+# Enables HPA to use custom Prometheus metrics for fair comparison with KEDA/DQN
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adapter-config
+  namespace: nimbusguard
+  labels:
+    component: prometheus-adapter
+    research: "true"
+  annotations:
+    research.note: "Custom metrics configuration for HPA to access same metrics as KEDA/DQN"
+data:
+  config.yaml: |
+    rules:
+    # === EXACT 9 SCIENTIFICALLY-SELECTED FEATURES ===
+    
+    # Feature 1: kube_deployment_status_replicas_unavailable
+    - seriesQuery: 'kube_deployment_status_replicas_unavailable{deployment="consumer"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          deployment: {resource: "deployment"}
+      name:
+        matches: "^(.*)$"
+        as: "unavailable_replicas"
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>})'
+    
+    # Feature 2: kube_pod_container_status_ready
+    - seriesQuery: 'kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^(.*)$"
+        as: "container_ready_count"
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+    
+    # Feature 3: kube_deployment_spec_replicas
+    - seriesQuery: 'kube_deployment_spec_replicas{deployment="consumer"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          deployment: {resource: "deployment"}
+      name:
+        matches: "^(.*)$"
+        as: "desired_replicas"
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>})'
+    
+    # Feature 4: kube_pod_container_resource_limits_cpu
+    - seriesQuery: 'kube_pod_container_resource_limits{resource="cpu",namespace="nimbusguard",pod=~"consumer-.*"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^(.*)$"
+        as: "cpu_limits_total"
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+    
+    # Feature 5: kube_pod_container_resource_limits_memory
+    - seriesQuery: 'kube_pod_container_resource_limits{resource="memory",namespace="nimbusguard",pod=~"consumer-.*"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^(.*)$"
+        as: "memory_limits_total"
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+    
+    # Feature 6: kube_pod_container_status_running
+    - seriesQuery: 'kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^(.*)$"
+        as: "container_running_count"
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+    
+    # Feature 7: kube_deployment_status_observed_generation
+    - seriesQuery: 'kube_deployment_status_observed_generation{deployment="consumer"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          deployment: {resource: "deployment"}
+      name:
+        matches: "^(.*)$"
+        as: "deployment_generation"
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>})'
+    
+    # Feature 8: node_network_up
+    - seriesQuery: 'node_network_up'
+      resources:
+        overrides:
+          instance: {resource: "node"}
+      name:
+        matches: "^(.*)$"
+        as: "network_up_count"
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>})'
+    
+    # Feature 9: kube_pod_container_status_last_terminated_exitcode
+    - seriesQuery: 'kube_pod_container_status_last_terminated_exitcode{namespace="nimbusguard",pod=~"consumer-.*"}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^(.*)$"
+        as: "container_exit_codes"
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)' 

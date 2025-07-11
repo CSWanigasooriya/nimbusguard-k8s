@@ -1,0 +1,48 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: consumer-hpa-baseline
+  labels:
+    component: consumer
+    evaluation: baseline
+    research: "true"
+    test-scenario: "hpa-baseline"
+  annotations:
+    research.note: "Baseline HPA for testing - faster scale-down for observing behavior"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: consumer
+  minReplicas: 1
+  maxReplicas: 50
+  metrics:
+  # CPU-based scaling (same thresholds)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory-based scaling (same thresholds)
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0   # React quickly to load spikes
+      selectPolicy: Min               # Use the more conservative policy
+      policies:
+      - type: Pods
+        value: 1                      # Add exactly 1 pod per cycle (like DQN)
+        periodSeconds: 15             # Standard HPA evaluation period
+    scaleDown:
+      stabilizationWindowSeconds: 0   # Instant  scaling down (like DQN)
+      selectPolicy: Min               # Use the more conservative policy
+      policies:
+      - type: Pods
+        value: 1                      # Remove exactly 1 pod per cycle (like DQN)
+        periodSeconds: 15             # Same evaluation period as scale-up 

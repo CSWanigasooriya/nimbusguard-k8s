@@ -1,0 +1,111 @@
+# ============================================================================
+# HPA ENHANCED CONFIGURATION
+# Uses Prometheus Adapter custom metrics for fair comparison with KEDA/DQN
+# ============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: consumer-hpa-enhanced
+  labels:
+    component: consumer
+    evaluation: enhanced
+    research: "true"
+    test-scenario: "hpa-enhanced"
+  annotations:
+    research.note: "Enhanced HPA using Prometheus Adapter custom metrics - same data as KEDA but with static thresholds"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: consumer
+  minReplicas: 1
+  maxReplicas: 50
+  metrics:
+  # Standard resource metrics (baseline)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  # Custom metrics via Prometheus Adapter (EXACT same 9 features as DQN)
+  - type: Object
+    object:
+      metric:
+        name: unavailable_replicas  # Feature 1
+      describedObject:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: consumer
+      target:
+        type: Value
+        value: "1"  # Scale up if any replicas are unavailable
+  
+  - type: Pods
+    pods:
+      metric:
+        name: container_ready_count  # Feature 2
+      target:
+        type: AverageValue
+        averageValue: "0.8"  # Scale up if readiness drops
+  
+  - type: Pods
+    pods:
+      metric:
+        name: container_running_count  # Feature 6
+      target:
+        type: AverageValue
+        averageValue: "0.9"  # Scale up if containers not running
+  
+  - type: Pods
+    pods:
+      metric:
+        name: container_exit_codes  # Feature 9
+      target:
+        type: AverageValue
+        averageValue: "1"  # Scale up if any containers failed
+  
+  - type: Pods
+    pods:
+      metric:
+        name: cpu_limits_total  # Feature 4
+      target:
+        type: AverageValue
+        averageValue: "2"  # Scale up when CPU allocation high
+  
+  - type: Pods
+    pods:
+      metric:
+        name: memory_limits_total  # Feature 5  
+      target:
+        type: AverageValue
+        averageValue: "6442450944"  # Scale up when memory allocation high (6GB)
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15   # Match KEDA polling interval
+      selectPolicy: Max
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 30   # Match KEDA cooldown period
+      selectPolicy: Min
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 30 
