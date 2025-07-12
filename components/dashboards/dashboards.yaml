@@ -397,13 +397,13 @@ data:
               "refId": "A"
             },
             {
-              "expr": "rate(dqn_experiences_added_total[5m])",
-              "legendFormat": "Experiences Added/sec",
+              "expr": "rate(dqn_experiences_added_total[1m])",
+              "legendFormat": "Experiences Added/min",
               "refId": "B"
             },
             {
-              "expr": "redis_connected_clients{instance=~\".*redis.*\"}",
-              "legendFormat": "Redis Connected Clients",
+              "expr": "dqn_training_steps_total",
+              "legendFormat": "Training Steps Total",
               "refId": "C"
             }
           ],
@@ -720,17 +720,17 @@ data:
               "refId": "A"
             },
             {
-              "expr": "rate(dqn_exploration_actions_total[5m])",
-              "legendFormat": "Exploration Actions/sec",
+              "expr": "rate(dqn_experiences_added_total[1m])",
+              "legendFormat": "Experiences Added/min",
               "refId": "B"
             },
             {
-              "expr": "rate(dqn_exploitation_actions_total[5m])",
-              "legendFormat": "Exploitation Actions/sec",
+              "expr": "rate(dqn_decisions_total[1m])",
+              "legendFormat": "Decisions/min",
               "refId": "C"
             }
           ],
-          "unit": "bytes",
+          "unit": "short",
           "gridPos": {"h": 6, "w": 12, "x": 12, "y": 32},
           "fieldConfig": {
             "defaults": {

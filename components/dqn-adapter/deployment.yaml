@@ -30,13 +30,12 @@ spec:
         - containerPort: 9091
           name: grpc
         env:
-        # OpenAI API key for LLM validation (only required when ENABLE_LLM_VALIDATION=true)
+        # OpenAI API key for LLM validation (REQUIRED - system cannot function without it)
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
               name: openai-api-key
               key: key
-              optional: true  # Optional - only needed when LLM validation is enabled
         # Service URLs
         - name: PROMETHEUS_URL
           value: "http://prometheus.nimbusguard.svc:9090"
@@ -56,61 +55,48 @@ spec:
           value: "true"  # Enable comprehensive AI reasoning logs
         # REMOVED: REASONING_LOG_LEVEL - defined in config but not used in code
         - name: ENABLE_LLM_VALIDATION
-          value: "true"  # Enabled for enhanced AI reasoning validation
+          value: "true"   # ENABLED - Use LLM safety validator to override unsafe DQN decisions
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
-          value: "0.3"    # Initial exploration probability
+          value: "0.8"    # High initial exploration for diverse experiences
         - name: EPSILON_END
-          value: "0.05"   # Final exploration probability
+          value: "0.1"    # Reasonable final exploration
         - name: EPSILON_DECAY
-          value: "0.99"  # Faster decay for 6-hour research evaluation
+          value: "0.95"   # Much faster decay for 30-min training
         
         # === DQN TRAINING HYPERPARAMETERS ===
         - name: GAMMA
           value: "0.99"     # Discount factor for future rewards
         - name: LEARNING_RATE
-          value: "0.0003"   # Increased learning rate for faster adaptation
+          value: "0.001"    # Increased learning rate for faster convergence in 30 mins
         - name: MEMORY_CAPACITY
           value: "50000"    # Replay buffer size
         - name: MIN_BATCH_SIZE
-          value: "4"        # Reduced minimum for faster training start
+          value: "2"        # Further reduced for immediate training start
         - name: BATCH_SIZE
-          value: "16"       # Reduced for more frequent training
+          value: "32"       # Increased for better training stability
         - name: TARGET_BATCH_SIZE
-          value: "32"       # Reduced target batch size
+          value: "64"       # Increased target batch size for more stable gradients
         - name: TARGET_UPDATE_INTERVAL
-          value: "1000"     # Steps between target network updates
+          value: "100"      # Much more frequent target network updates for 30-min training
         
         # === NEURAL NETWORK ARCHITECTURE ===
         - name: DQN_HIDDEN_DIMS
-          value: "64,32"        # Optimized for 9 input features (was 512,256,128 - overkill)
+          value: "64,32"     
         
         
         # === REWARD SYSTEM CONFIGURATION ===
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "15"            # Decision interval (matches HPA/KEDA evaluation)
-        # REMOVED: REWARD_LATENCY_WEIGHT - not used in calculate_stable_reward function
-        # REMOVED: REWARD_REPLICA_COST - not used in calculate_stable_reward function  
-                 # Use improved multi-objective reward system
-        
-        # === MULTI-OBJECTIVE REWARD WEIGHTS ===
-        - name: REWARD_PERFORMANCE_WEIGHT
-          value: "0.40"         # Performance component weight (40%)
-        - name: REWARD_RESOURCE_WEIGHT
-          value: "0.30"         # Resource efficiency weight (30%)
-        - name: REWARD_HEALTH_WEIGHT
-          value: "0.20"         # System health weight (20%)
-        - name: REWARD_COST_WEIGHT
-          value: "0.10"         # Cost optimization weight (10%)
+          value: "10"            # Faster decision cycles for more experiences in 30 mins
         
         # === EVALUATION & MONITORING ===
         - name: EVALUATION_INTERVAL
-          value: "300"          # Evaluation frequency in seconds (5 minutes)
+          value: "120"          # More frequent evaluation (2 minutes) for 30-min training
         - name: ENABLE_EVALUATION_OUTPUTS
           value: "true"         # Generate evaluation reports and visualizations
         - name: SAVE_INTERVAL_SECONDS
-          value: "300"          # Model save frequency in seconds (5 minutes)
+          value: "120"          # More frequent model saves (2 minutes) for 30-min training
         
         # === DEPLOYMENT CONFIGURATION ===
         - name: TARGET_DEPLOYMENT
