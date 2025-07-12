@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-test-baseline
+  labels:
+    load-test: baseline
+    experiment: scaling-comparison
+spec:
+  template:
+    metadata:
+      labels:
+        load-test: baseline
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-consumer
+        image: curlimages/curl:8.5.0
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for consumer service to be ready..."
+          until curl -f -s http://consumer:8000/health > /dev/null; do
+            echo "Consumer not ready, waiting 5 seconds..."
+            sleep 5
+          done
+          echo "Consumer service is ready!"
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "10m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
+      containers:
+      - name: load-generator
+        image: nimbusguard-generator:latest
+        imagePullPolicy: Always
+        command: ['sh', '-c']
+        args:
+        - |-
+          echo "🎯 Starting Production-Like Baseline Comparison Load Test"
+          echo "🔥 Fire-and-forget mode: Pure async, no response waiting"
+          echo "📊 30-minute phased pattern optimized for scaling system evaluation"
+          echo ""
+          
+          python load_generator.py \
+            --url=http://consumer:8000 \
+            --test-name="Evaluation-Aligned Baseline Comparison Test" \
+            --description="Production-like load pattern with fire-and-forget mode" \
+            --fire-and-forget \
+            --async-mode \
+            --seed=12345
+            
+          echo ""
+          echo "✅ Production-like baseline test completed"
+          echo "🔥 All requests fired without waiting for responses"
+          echo "📈 Check scaling behavior in Grafana/Prometheus"
+          echo "🔍 Monitor with: kubectl get hpa,pods -n nimbusguard"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        env:
+        - name: COMPARISON_MODE
+          value: "true"
+        - name: LOAD_PATTERN_SEED
+          value: "12345"
+  backoffLimit: 1
+  activeDeadlineSeconds: 2100  # 35 minutes max 

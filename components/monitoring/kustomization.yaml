@@ -5,6 +5,7 @@ resources:
   - prometheus.yaml
   - prometheus-rbac.yaml
   - prometheus-service.yaml
+  # - prometheus-adapter-config.yaml
   - alloy.yaml
   - alloy-rbac.yaml
   - alloy-service.yaml

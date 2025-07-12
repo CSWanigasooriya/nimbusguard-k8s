@@ -11,6 +11,8 @@ components:
   - ../../components/redis
   - ../../components/minio
   - ../../components/monitoring
+  - ../../components/dashboards
+  - ../../components/load-generator
   - ../../components/keda
   - ../../components/mcp-server
 

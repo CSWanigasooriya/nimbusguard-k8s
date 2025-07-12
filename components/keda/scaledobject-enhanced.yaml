@@ -1,0 +1,115 @@
+# ============================================================================
+# KEDA SCALEDOBJECT ENHANCED CONFIGURATION  
+# Uses simplified, working queries aligned with DQN system for reliable scaling
+# Fixed: Complex OR queries simplified, realistic thresholds, meaningful triggers
+# ============================================================================
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-scaler-enhanced
+  labels:
+    component: consumer
+    evaluation: enhanced
+    research: "true"
+    test-scenario: "keda-enhanced"
+  annotations:
+    research.note: "KEDA enhanced using simplified working queries - reliable scaling with comprehensive metrics"
+spec:
+  scaleTargetRef:
+    name: consumer
+  minReplicaCount: 1
+  maxReplicaCount: 50
+  pollingInterval: 15        # Match DQN decision interval
+  cooldownPeriod: 15         # Fast response like HPA baseline
+  triggers:
+    # Metric 1: Scale up if any replicas are unavailable (critical health issue)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: unavailable_replicas
+        threshold: '1'  # Scale up immediately if any replica fails
+        query: |
+          kube_deployment_status_replicas_unavailable{deployment="consumer",namespace="nimbusguard"} or on() vector(0)
+    
+    # Metric 2: Scale up when CPU resource pressure is high (total cores across all replicas)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: total_cpu_limits
+        threshold: '2'  # Scale up when total CPU > 2 cores (4+ replicas at 0.5 each)
+        query: |
+          sum(kube_pod_container_resource_limits{resource="cpu",namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(0.5)
+    
+    # Metric 3: Scale up when memory resource pressure is high (total memory across all replicas)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: total_memory_limits_gb
+        threshold: '3'  # Scale up when total memory > 3GB (3+ replicas at 1GB each)
+        query: |
+          sum(kube_pod_container_resource_limits{resource="memory",namespace="nimbusguard",pod=~"consumer-.*"}) / 1024 / 1024 / 1024 or on() vector(1)
+    
+    # Metric 4: Scale up when containers are not ready (availability issue)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: unready_containers_ratio
+        threshold: '0.2'  # Scale up when > 20% containers not ready
+        query: |
+          (
+            count(kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"} == 0) or on() vector(0)
+          ) / (
+            count(kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(1)
+          )
+    
+    # Metric 5: Scale up when containers are not running (runtime issue)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: non_running_containers_ratio
+        threshold: '0.2'  # Scale up when > 20% containers not running
+        query: |
+          (
+            count(kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"} == 0) or on() vector(0)
+          ) / (
+            count(kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(1)
+          )
+    
+    # Metric 6: Scale up when recent container failures detected
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: container_exit_failures
+        threshold: '1'  # Scale up if any container exited with non-zero code
+        query: |
+          count(kube_pod_container_status_last_terminated_exitcode{namespace="nimbusguard",pod=~"consumer-.*"} > 0) or on() vector(0)
+    
+    # Metric 7: Scale up when desired replica count is high (load indicator)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: high_desired_replicas
+        threshold: '8'  # Scale up when already at 8+ replicas (high load scenario)
+        query: |
+          kube_deployment_spec_replicas{deployment="consumer",namespace="nimbusguard"} or on() vector(1)
+    
+    # Metric 8: Scale up when deployment is out of sync (rolling update issues)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: deployment_generation_lag
+        threshold: '1'  # Scale up if metadata and observed generation differ
+        query: |
+          abs(
+            (kube_deployment_metadata_generation{deployment="consumer",namespace="nimbusguard"} or on() vector(1)) -
+            (kube_deployment_status_observed_generation{deployment="consumer",namespace="nimbusguard"} or on() vector(1))
+          )
+    
+    # Metric 9: Network health indicator (simplified - just check if node exporter is up)
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.nimbusguard.svc:9090
+        metricName: node_exporter_health
+        threshold: '0.5'  # Scale up when node monitoring is unhealthy
+        query: |
+          up{job="prometheus.scrape.node_exporter"} or on() vector(1) 

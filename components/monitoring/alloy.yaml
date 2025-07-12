@@ -137,7 +137,7 @@ data:
       }
     }
 
-    // Scrape NimbusGuard consumer service
+    // Scrape NimbusGuard consumer service - REAL-TIME for DQN monitoring
     prometheus.scrape "nimbusguard_consumer" {
       targets = [
         {
@@ -146,35 +146,40 @@ data:
         },
       ]
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "30s"
+      scrape_interval = "1s"  // Real-time for workload monitoring
+      scrape_timeout = "800ms"  // Must be less than scrape_interval
     }
 
-    // Scrape Node Exporter (host metrics)
+    // Scrape Node Exporter (host metrics) - Fast for resource monitoring
     prometheus.scrape "node_exporter" {
       targets = discovery.relabel.node_exporter.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "30s"
+      scrape_interval = "5s"  // Fast for infrastructure monitoring
+      scrape_timeout = "4s"   // Must be less than scrape_interval
     }
 
-    // Scrape Kube State Metrics (Kubernetes object state)
+    // Scrape Kube State Metrics (Kubernetes object state) - Fast for cluster state
     prometheus.scrape "kube_state_metrics" {
       targets = discovery.relabel.kube_state_metrics.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "30s"
+      scrape_interval = "5s"  // Fast for cluster state monitoring
+      scrape_timeout = "4s"   // Must be less than scrape_interval
     }
 
-    // Scrape Beyla eBPF metrics
+    // Scrape Beyla eBPF metrics - Real-time for network/app insights
     prometheus.scrape "beyla_metrics" {
       targets = discovery.relabel.beyla_services.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "30s"
+      scrape_interval = "2s"  // Near real-time for eBPF insights
+      scrape_timeout = "1500ms"  // Must be less than scrape_interval
     }
 
-    // Auto-discover pods with prometheus.io/scrape annotation
+    // Auto-discover pods with prometheus.io/scrape annotation - REAL-TIME for DQN adapter
     prometheus.scrape "annotated_pods" {
       targets = discovery.relabel.annotated_pods.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "30s"
+      scrape_interval = "1s"  // Real-time for DQN decisions and metrics
+      scrape_timeout = "800ms"  // Must be less than scrape_interval
     }
 
     // ============= LOGS =============

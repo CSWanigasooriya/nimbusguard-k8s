@@ -1,0 +1,34 @@
+# ============================================================================
+# KEDA SCALEDOBJECT BASELINE CONFIGURATION
+# Uses same CPU/Memory metrics as HPA baseline for fair comparison
+# ============================================================================
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-scaler-baseline
+  labels:
+    component: consumer
+    evaluation: baseline
+    research: "true"
+    test-scenario: "keda-baseline"
+  annotations:
+    research.note: "KEDA baseline using same CPU/Memory metrics as HPA baseline - fair comparison"
+spec:
+  scaleTargetRef:
+    name: consumer
+  minReplicaCount: 1
+  maxReplicaCount: 50
+  pollingInterval: 15        # Match HPA evaluation period
+  cooldownPeriod: 15         # Fast response like HPA (stabilizationWindowSeconds: 0)
+  triggers:
+    # CPU-based scaling (same as HPA baseline)
+    - type: cpu
+      metadata:
+        type: Utilization
+        value: '70'  # Scale up when CPU > 70% (same as HPA)
+    
+    # Memory-based scaling (same as HPA baseline)
+    - type: memory
+      metadata:
+        type: Utilization
+        value: '80'  # Scale up when Memory > 80% (same as HPA) 

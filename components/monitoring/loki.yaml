@@ -26,11 +26,11 @@ spec:
           mountPath: /loki
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
             memory: "512Mi"
             cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "400m"  # Increased for real-time log processing
       volumes:
       - name: loki-config
         configMap:
@@ -92,10 +92,10 @@ data:
     
     compactor:
       working_directory: /loki/compactor
-      compaction_interval: 10m
+      compaction_interval: 1m   # Real-time log compaction
       retention_enabled: true
-      retention_delete_delay: 2h
-      retention_delete_worker_count: 150
+      retention_delete_delay: 30m  # Faster cleanup
+      retention_delete_worker_count: 200  # More workers for faster processing
       delete_request_store: filesystem
     
     # Enable native OTLP ingestion
