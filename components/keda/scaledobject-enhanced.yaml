@@ -1,7 +1,7 @@
 # ============================================================================
 # KEDA SCALEDOBJECT ENHANCED CONFIGURATION  
-# Uses EXACT same 9 raw metric queries as DQN system for perfectly fair comparison
-# Thresholds based on actual consumer resource allocation: 0.5 CPU cores + 1GB memory per replica
+# Uses simplified, working queries aligned with DQN system for reliable scaling
+# Fixed: Complex OR queries simplified, realistic thresholds, meaningful triggers
 # ============================================================================
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
@@ -13,7 +13,7 @@ metadata:
     research: "true"
     test-scenario: "keda-enhanced"
   annotations:
-    research.note: "KEDA enhanced using EXACT same raw metric queries as DQN - perfectly aligned comparison with realistic thresholds"
+    research.note: "KEDA enhanced using simplified working queries - reliable scaling with comprehensive metrics"
 spec:
   scaleTargetRef:
     name: consumer
@@ -22,85 +22,94 @@ spec:
   pollingInterval: 15        # Match DQN decision interval
   cooldownPeriod: 15         # Fast response like HPA baseline
   triggers:
-    # Metric 1: kube_deployment_status_replicas_unavailable (EXACT DQN query)
+    # Metric 1: Scale up if any replicas are unavailable (critical health issue)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_deployment_status_replicas_unavailable
-        threshold: '1'  # Scale up if any replica is unavailable
+        metricName: unavailable_replicas
+        threshold: '1'  # Scale up immediately if any replica fails
         query: |
-          max(kube_deployment_status_replicas_unavailable{deployment="consumer",namespace="nimbusguard"}) or vector(0)
+          kube_deployment_status_replicas_unavailable{deployment="consumer",namespace="nimbusguard"} or on() vector(0)
     
-    # Metric 2: kube_pod_container_status_ready (EXACT DQN query - raw count)
+    # Metric 2: Scale up when CPU resource pressure is high (total cores across all replicas)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_pod_container_status_ready
-        threshold: '2'  # Scale up when < 2 ready containers (minimum viable)
+        metricName: total_cpu_limits
+        threshold: '2'  # Scale up when total CPU > 2 cores (4+ replicas at 0.5 each)
         query: |
-          count(count by (pod) (kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"} == 1)) or vector(0)
+          sum(kube_pod_container_resource_limits{resource="cpu",namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(0.5)
     
-    # Metric 3: kube_deployment_spec_replicas (EXACT DQN query)
+    # Metric 3: Scale up when memory resource pressure is high (total memory across all replicas)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_deployment_spec_replicas
-        threshold: '8'  # Scale up when desired replicas > 8 (high load indicator)
+        metricName: total_memory_limits_gb
+        threshold: '3'  # Scale up when total memory > 3GB (3+ replicas at 1GB each)
         query: |
-          max(kube_deployment_spec_replicas{deployment="consumer",namespace="nimbusguard"}) or vector(1)
+          sum(kube_pod_container_resource_limits{resource="memory",namespace="nimbusguard",pod=~"consumer-.*"}) / 1024 / 1024 / 1024 or on() vector(1)
     
-    # Metric 4: kube_pod_container_status_running (EXACT DQN query - raw count)
+    # Metric 4: Scale up when containers are not ready (availability issue)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_pod_container_status_running
-        threshold: '2'  # Scale up when < 2 running containers (minimum viable)
+        metricName: unready_containers_ratio
+        threshold: '0.2'  # Scale up when > 20% containers not ready
         query: |
-          count(count by (pod) (kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"} == 1)) or vector(0)
+          (
+            count(kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"} == 0) or on() vector(0)
+          ) / (
+            count(kube_pod_container_status_ready{namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(1)
+          )
     
-    # Metric 5: kube_deployment_status_observed_generation (EXACT DQN query)
+    # Metric 5: Scale up when containers are not running (runtime issue)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_deployment_status_observed_generation
-        threshold: '10'  # Scale when generation > 10 (informational trigger)
+        metricName: non_running_containers_ratio
+        threshold: '0.2'  # Scale up when > 20% containers not running
         query: |
-          max(kube_deployment_status_observed_generation{deployment="consumer",namespace="nimbusguard"}) or vector(1)
+          (
+            count(kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"} == 0) or on() vector(0)
+          ) / (
+            count(kube_pod_container_status_running{namespace="nimbusguard",pod=~"consumer-.*"}) or on() vector(1)
+          )
     
-    # Metric 6: kube_pod_container_resource_limits_cpu (EXACT DQN query)
-    # Based on 0.5 cores per replica: 4 replicas = 2.0 cores, 6 replicas = 3.0 cores
+    # Metric 6: Scale up when recent container failures detected
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_pod_container_resource_limits_cpu
-        threshold: '2.5'  # Scale up when total CPU allocation > 2.5 cores (5+ replicas)
+        metricName: container_exit_failures
+        threshold: '1'  # Scale up if any container exited with non-zero code
         query: |
-          sum(sum by (pod) (kube_pod_container_resource_limits{resource="cpu",namespace="nimbusguard",pod=~"consumer-.*"})) or vector(0.25)
+          count(kube_pod_container_status_last_terminated_exitcode{namespace="nimbusguard",pod=~"consumer-.*"} > 0) or on() vector(0)
     
-    # Metric 7: kube_pod_container_resource_limits_memory (EXACT DQN query)
-    # Based on 1GB per replica: 3 replicas = 3GB, 4 replicas = 4GB
+    # Metric 7: Scale up when desired replica count is high (load indicator)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_pod_container_resource_limits_memory
-        threshold: '3221225472'  # Scale up when total memory allocation > 3GB (3+ replicas)
+        metricName: high_desired_replicas
+        threshold: '8'  # Scale up when already at 8+ replicas (high load scenario)
         query: |
-          sum(sum by (pod) (kube_pod_container_resource_limits{resource="memory",namespace="nimbusguard",pod=~"consumer-.*"})) or vector(268435456)
+          kube_deployment_spec_replicas{deployment="consumer",namespace="nimbusguard"} or on() vector(1)
     
-    # Metric 8: node_network_up (EXACT DQN query - raw sum)
+    # Metric 8: Scale up when deployment is out of sync (rolling update issues)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: node_network_up
-        threshold: '0.5'  # Scale up when network health < 0.5
+        metricName: deployment_generation_lag
+        threshold: '1'  # Scale up if metadata and observed generation differ
         query: |
-          sum(up{job=~".*node.*"}) or sum(up{job="node-exporter"}) or sum(node_network_up) or vector(1)
+          abs(
+            (kube_deployment_metadata_generation{deployment="consumer",namespace="nimbusguard"} or on() vector(1)) -
+            (kube_deployment_status_observed_generation{deployment="consumer",namespace="nimbusguard"} or on() vector(1))
+          )
     
-    # Metric 9: kube_pod_container_status_last_terminated_exitcode (EXACT DQN query)
+    # Metric 9: Network health indicator (simplified - just check if node exporter is up)
     - type: prometheus
       metadata:
         serverAddress: http://prometheus.nimbusguard.svc:9090
-        metricName: kube_pod_container_status_last_terminated_exitcode
-        threshold: '1'  # Scale up if any container has failed (exit code > 0)
+        metricName: node_exporter_health
+        threshold: '0.5'  # Scale up when node monitoring is unhealthy
         query: |
-          max(kube_pod_container_status_last_terminated_exitcode{namespace="nimbusguard",pod=~"consumer-.*"}) or vector(0) 
+          up{job="prometheus.scrape.node_exporter"} or on() vector(1) 
