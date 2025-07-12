@@ -55,31 +55,33 @@ spec:
           value: "true"  # Enable comprehensive AI reasoning logs
         # REMOVED: REASONING_LOG_LEVEL - defined in config but not used in code
         - name: ENABLE_LLM_VALIDATION
-          value: "true"   # ENABLED - Use LLM safety validator to override unsafe DQN decisions
+          value: "false"     # ENABLED - Use LLM safety validator with MCP tools to override unsafe DQN decisions
+        - name: ENABLE_LLM_REWARDS
+          value: "true"     # ENABLED - Use LLM for intelligent reward calculation (separate from validation)
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
-          value: "0.8"    # High initial exploration for diverse experiences
+          value: "0.95"   # MAXIMUM exploration to break Q-value bias
         - name: EPSILON_END
-          value: "0.1"    # Reasonable final exploration
+          value: "0.3"    # Keep exploring much longer 
         - name: EPSILON_DECAY
-          value: "0.95"   # Much faster decay for 30-min training
+          value: "0.9995" # MUCH slower decay - stay in exploration for hours
         
         # === DQN TRAINING HYPERPARAMETERS ===
         - name: GAMMA
-          value: "0.99"     # Discount factor for future rewards
+          value: "0.95"     # Reduced discount factor to focus more on immediate rewards
         - name: LEARNING_RATE
-          value: "0.001"    # Increased learning rate for faster convergence in 30 mins
+          value: "0.0005"   # Reduced learning rate for more stable convergence
         - name: MEMORY_CAPACITY
           value: "50000"    # Replay buffer size
         - name: MIN_BATCH_SIZE
-          value: "2"        # Further reduced for immediate training start
+          value: "4"        # REDUCED - faster learning from negative rewards
         - name: BATCH_SIZE
-          value: "32"       # Increased for better training stability
+          value: "8"        # Smaller batches for rapid adaptation to LLM feedback
         - name: TARGET_BATCH_SIZE
-          value: "64"       # Increased target batch size for more stable gradients
+          value: "16"       # Smaller target batch for faster Q-value updates
         - name: TARGET_UPDATE_INTERVAL
-          value: "100"      # Much more frequent target network updates for 30-min training
+          value: "500"      # INCREASED - allow target network to stabilize more
         
         # === NEURAL NETWORK ARCHITECTURE ===
         - name: DQN_HIDDEN_DIMS
@@ -105,6 +107,10 @@ spec:
           value: "nimbusguard"
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: FORCE_FRESH_MODEL
+          value: "true"       # Force using fresh model weights to fix Q-value bias
+        - name: CLEAR_EXPERIENCE_BUFFER
+          value: "true"       # Clear any existing experience buffer for fresh learning
         readinessProbe:
           exec:
             command:
