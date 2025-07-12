@@ -61,11 +61,11 @@ spec:
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
-          value: "0.95"   # MAXIMUM exploration to break Q-value bias
+          value: "1.0"    # Start with 100% exploration 
         - name: EPSILON_END
-          value: "0.3"    # Keep exploring much longer 
+          value: "0.05"   # End with 5% exploration
         - name: EPSILON_DECAY
-          value: "0.9995" # MUCH slower decay - stay in exploration for hours
+          value: "0.995"  # Decay 0.5% per decision (proper learning curve)
         
         # === DQN TRAINING HYPERPARAMETERS ===
         - name: GAMMA
