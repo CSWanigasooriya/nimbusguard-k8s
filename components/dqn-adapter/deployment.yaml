@@ -61,11 +61,11 @@ spec:
         
         # === DQN EXPLORATION STRATEGY ===
         - name: EPSILON_START
-          value: "1.0"    # Start with 100% exploration 
+          value: "0.15"   # Start with 15% exploration (optimized for Kubernetes)
         - name: EPSILON_END
-          value: "0.05"   # End with 5% exploration
+          value: "0.01"   # End with 1% exploration (minimal but maintains adaptability)
         - name: EPSILON_DECAY
-          value: "0.995"  # Decay 0.5% per decision (proper learning curve)
+          value: "0.98"   # Faster decay for production stability
         
         # === DQN TRAINING HYPERPARAMETERS ===
         - name: GAMMA
@@ -111,6 +111,8 @@ spec:
           value: "true"       # Force using fresh model weights to fix Q-value bias
         - name: CLEAR_EXPERIENCE_BUFFER
           value: "true"       # Clear any existing experience buffer for fresh learning
+        - name: RESET_EPSILON_ON_LOAD
+          value: "true"       # Reset epsilon to config values instead of loading from checkpoint
         readinessProbe:
           exec:
             command:
