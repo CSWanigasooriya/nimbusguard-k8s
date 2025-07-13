@@ -7,7 +7,7 @@ resources:
 
 components:
   - ../../components/consumer
-  - ../../components/dqn-adapter
+  - ../../components/operator
   - ../../components/redis
   - ../../components/minio
   - ../../components/monitoring

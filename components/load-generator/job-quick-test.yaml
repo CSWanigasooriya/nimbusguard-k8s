@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-test-quick
+  labels:
+    load-test: quick
+spec:
+  template:
+    metadata:
+      labels:
+        load-test: quick
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-consumer
+        image: curlimages/curl:8.5.0
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for consumer service to be ready..."
+          until curl -f -s http://consumer:8000/health > /dev/null; do
+            echo "Consumer not ready, waiting 5 seconds..."
+            sleep 5
+          done
+          echo "Consumer service is ready!"
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "10m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
+      containers:
+      - name: load-generator
+        image: nimbusguard-generator:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --url=http://consumer:8000
+        - --test-name=Quick Scale Test
+        - --description=1-minute test to trigger quick scaling up and down
+        - --concurrent=12
+        - --total=60
+        - --cpu-intensity=8
+        - --memory-size=200
+        - --duration=15
+        - --delay=1.0
+        - --async-mode
+        - --monitor
+        - --cleanup
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 1
+  activeDeadlineSeconds: 120  # 2 minutes max 

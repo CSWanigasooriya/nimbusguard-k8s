@@ -1,41 +1,42 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dqn-adapter
+  name: nimbusguard-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: dqn-adapter
+      app.kubernetes.io/name: nimbusguard-operator
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: dqn-adapter
-        component: dqn-adapter
+        app.kubernetes.io/name: nimbusguard-operator
+        component: nimbusguard-operator
       annotations:
         # This annotation is crucial. It tells Alloy/Prometheus to scrape this pod.
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: dqn-adapter-sa
+      serviceAccountName: nimbusguard-operator-sa
       containers:
       - name: adapter
         # NOTE: You will need to build and push this image to your registry.
-        image: nimbusguard-dqn-adapter:latest
+        image: nimbusguard-operator:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: metrics
-        - containerPort: 9091
-          name: grpc
+        - containerPort: 8081
+          name: health
         env:
-        # OpenAI API key for LLM validation (REQUIRED - system cannot function without it)
+        # OpenAI API key for LLM validation (OPTIONAL - only needed if LLM features are enabled)
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
               name: openai-api-key
               key: key
+              optional: true
         # Service URLs
         - name: PROMETHEUS_URL
           value: "http://prometheus.nimbusguard.svc:9090"
@@ -50,69 +51,86 @@ spec:
         - name: AI_TEMPERATURE
           value: "0.1"  # Low temperature for consistent reasoning
         
-        # === EXPLAINABLE AI CONFIGURATION ===
+        # === SIMPLIFIED AI CONFIGURATION ===
         - name: ENABLE_DETAILED_REASONING
           value: "true"  # Enable comprehensive AI reasoning logs
-        # REMOVED: REASONING_LOG_LEVEL - defined in config but not used in code
         - name: ENABLE_LLM_VALIDATION
-          value: "false"     # ENABLED - Use LLM safety validator with MCP tools to override unsafe DQN decisions
+          value: "false"     # DISABLED - Simplified DQN without LLM overrides
         - name: ENABLE_LLM_REWARDS
-          value: "true"     # ENABLED - Use LLM for intelligent reward calculation (separate from validation)
+          value: "false"     # DISABLED - Using simplified metric-based rewards only
         
-        # === DQN EXPLORATION STRATEGY ===
+        # === SIMPLIFIED DQN EXPLORATION ===
         - name: EPSILON_START
-          value: "0.15"   # Start with 15% exploration (optimized for Kubernetes)
+          value: "0.2"    # Start with 20% exploration
         - name: EPSILON_END
-          value: "0.01"   # End with 1% exploration (minimal but maintains adaptability)
+          value: "0.01"   # End with 1% exploration
         - name: EPSILON_DECAY
-          value: "0.98"   # Faster decay for production stability
+          value: "0.995"  # Gradual decay for stable learning
         
-        # === DQN TRAINING HYPERPARAMETERS ===
+        # === SIMPLIFIED DQN TRAINING ===
         - name: GAMMA
-          value: "0.95"     # Reduced discount factor to focus more on immediate rewards
+          value: "0.99"       # Standard discount factor
         - name: LEARNING_RATE
-          value: "0.0005"   # Reduced learning rate for more stable convergence
+          value: "0.001"      # Balanced learning rate
         - name: MEMORY_CAPACITY
-          value: "50000"    # Replay buffer size
+          value: "10000"      # Smaller replay buffer for faster learning
         - name: MIN_BATCH_SIZE
-          value: "4"        # REDUCED - faster learning from negative rewards
+          value: "8"          # Minimum batch size for training
         - name: BATCH_SIZE
-          value: "8"        # Smaller batches for rapid adaptation to LLM feedback
+          value: "32"         # Standard batch size
         - name: TARGET_BATCH_SIZE
-          value: "16"       # Smaller target batch for faster Q-value updates
+          value: "32"         # Target batch size
         - name: TARGET_UPDATE_INTERVAL
-          value: "500"      # INCREASED - allow target network to stabilize more
+          value: "100"        # Frequent target network updates
         
         # === NEURAL NETWORK ARCHITECTURE ===
         - name: DQN_HIDDEN_DIMS
-          value: "64,32"     
+          value: "64,32"      # Simple 2-layer architecture
         
+        # === LSTM FORECASTING CONFIGURATION ===
+        - name: FORECASTING_ENABLED
+          value: "true"       # Enable LSTM forecasting
+        - name: FORECAST_HORIZON_MINUTES
+          value: "10"         # Forecast 10 minutes ahead
+        - name: FORECAST_LOOKBACK_MINUTES
+          value: "30"         # Use 30 minutes of historical data
+        - name: LSTM_HIDDEN_SIZE
+          value: "64"         # LSTM hidden layer size
+        - name: LSTM_NUM_LAYERS
+          value: "2"          # Number of LSTM layers
+        - name: LSTM_LEARNING_RATE
+          value: "0.001"      # LSTM learning rate
+        - name: FORECAST_RETRAIN_INTERVAL
+          value: "60"         # Retrain LSTM every 60 minutes
         
-        # === REWARD SYSTEM CONFIGURATION ===
+        # === CRITICAL: STABILIZATION PERIOD ===
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "10"            # Faster decision cycles for more experiences in 30 mins
+          value: "15"         # Wait 15 seconds after action before reward calculation
         
         # === EVALUATION & MONITORING ===
         - name: EVALUATION_INTERVAL
-          value: "120"          # More frequent evaluation (2 minutes) for 30-min training
+          value: "300"        # Evaluate every 5 minutes
         - name: ENABLE_EVALUATION_OUTPUTS
-          value: "true"         # Generate evaluation reports and visualizations
+          value: "true"       # Generate evaluation reports
         - name: SAVE_INTERVAL_SECONDS
-          value: "120"          # More frequent model saves (2 minutes) for 30-min training
+          value: "300"        # Save model every 5 minutes
         
         # === DEPLOYMENT CONFIGURATION ===
         - name: TARGET_DEPLOYMENT
-          value: "consumer"  # DQN will use ACTUAL resource limits from this deployment's spec
+          value: "consumer"   # Target deployment to scale
         - name: TARGET_NAMESPACE
           value: "nimbusguard"
         - name: PYTHONUNBUFFERED
           value: "1"
+        
+        # === SIMPLIFIED STARTUP ===
         - name: FORCE_FRESH_MODEL
-          value: "true"       # Force using fresh model weights to fix Q-value bias
+          value: "true"       # Start with fresh model
         - name: CLEAR_EXPERIENCE_BUFFER
-          value: "true"       # Clear any existing experience buffer for fresh learning
+          value: "true"       # Clear experience buffer
         - name: RESET_EPSILON_ON_LOAD
-          value: "true"       # Reset epsilon to config values instead of loading from checkpoint
+          value: "true"       # Reset epsilon to start values
+        
         readinessProbe:
           exec:
             command:
