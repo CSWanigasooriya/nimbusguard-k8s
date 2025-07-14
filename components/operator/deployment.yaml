@@ -105,7 +105,7 @@ spec:
         
         # === REWARD SYSTEM CONFIGURATION ===
         - name: REWARD_CURRENT_WEIGHT
-          value: "0.7"        # Weight for current state reward (forecast gets 1 - this value)
+          value: "0.5"        # Weight for current state reward (forecast gets 1 - this value)
         
         # === SCALING CONFIGURATION ===
         - name: TARGET_DEPLOYMENT
