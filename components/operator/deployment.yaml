@@ -59,29 +59,21 @@ spec:
         - name: ENABLE_LLM_REWARDS
           value: "false"     # DISABLED - Using simplified metric-based rewards only
         
-        # === SIMPLIFIED DQN EXPLORATION ===
-        - name: EPSILON_START
+        # === DQN CONFIGURATION ===
+        - name: DQN_EPSILON_START
           value: "0.2"    # Start with 20% exploration
-        - name: EPSILON_END
+        - name: DQN_EPSILON_END
           value: "0.01"   # End with 1% exploration
-        - name: EPSILON_DECAY
+        - name: DQN_EPSILON_DECAY
           value: "0.995"  # Gradual decay for stable learning
-        
-        # === SIMPLIFIED DQN TRAINING ===
-        - name: GAMMA
+        - name: DQN_GAMMA
           value: "0.99"       # Standard discount factor
-        - name: LEARNING_RATE
+        - name: DQN_LEARNING_RATE
           value: "0.001"      # Balanced learning rate
-        - name: MEMORY_CAPACITY
+        - name: DQN_MEMORY_CAPACITY
           value: "10000"      # Smaller replay buffer for faster learning
-        - name: MIN_BATCH_SIZE
-          value: "8"          # Minimum batch size for training
-        - name: BATCH_SIZE
+        - name: DQN_BATCH_SIZE
           value: "32"         # Standard batch size
-        - name: TARGET_BATCH_SIZE
-          value: "32"         # Target batch size
-        - name: TARGET_UPDATE_INTERVAL
-          value: "100"        # Frequent target network updates
         
         # === NEURAL NETWORK ARCHITECTURE ===
         - name: DQN_HIDDEN_DIMS
@@ -100,7 +92,7 @@ spec:
           value: "2"          # Number of LSTM layers
         - name: LSTM_LEARNING_RATE
           value: "0.001"      # LSTM learning rate
-        - name: FORECAST_RETRAIN_INTERVAL
+        - name: LSTM_RETRAIN_INTERVAL_MINUTES
           value: "60"         # Retrain LSTM every 60 minutes
         - name: LSTM_SEQUENCE_LENGTH
           value: "15"         # Sequence length for LSTM
@@ -124,16 +116,28 @@ spec:
           value: "consumer"   # Target deployment to scale
         - name: TARGET_NAMESPACE
           value: "nimbusguard"
+        - name: MIN_REPLICAS
+          value: "1"          # Minimum replica count
+        - name: MAX_REPLICAS
+          value: "10"         # Maximum replica count
+        - name: STABILIZATION_PERIOD_SECONDS
+          value: "30"         # Wait 30 seconds after action before reward calculation
+        
+        # === SERVER CONFIGURATION ===
+        - name: SERVER_PORT
+          value: "8080"       # Metrics server port
+        - name: HEALTH_PORT
+          value: "8081"       # Health check port
+        
+        # === MONITORING CONFIGURATION ===
+        - name: METRICS_ENABLED
+          value: "true"       # Enable metrics collection
+        - name: LOG_LEVEL
+          value: "INFO"       # Logging level
+        
+        # === SYSTEM CONFIGURATION ===
         - name: PYTHONUNBUFFERED
           value: "1"
-        
-        # === SIMPLIFIED STARTUP ===
-        - name: FORCE_FRESH_MODEL
-          value: "true"       # Start with fresh model
-        - name: CLEAR_EXPERIENCE_BUFFER
-          value: "true"       # Clear experience buffer
-        - name: RESET_EPSILON_ON_LOAD
-          value: "true"       # Reset epsilon to start values
         
         readinessProbe:
           exec:
