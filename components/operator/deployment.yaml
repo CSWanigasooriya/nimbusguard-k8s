@@ -115,7 +115,7 @@ spec:
         - name: MIN_REPLICAS
           value: "1"          # Minimum replica count
         - name: MAX_REPLICAS
-          value: "10"         # Maximum replica count
+          value: "50"         # Maximum replica count
         - name: STABILIZATION_PERIOD_SECONDS
           value: "30"         # Wait 30 seconds after action before reward calculation
         

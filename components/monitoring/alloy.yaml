@@ -137,19 +137,6 @@ data:
       }
     }
 
-    // Scrape NimbusGuard consumer service - REAL-TIME for DQN monitoring
-    prometheus.scrape "nimbusguard_consumer" {
-      targets = [
-        {
-          __address__ = "consumer:8000",
-          __metrics_path__ = "/metrics",
-        },
-      ]
-      forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "1s"  // Real-time for workload monitoring
-      scrape_timeout = "800ms"  // Must be less than scrape_interval
-    }
-
     // Scrape Node Exporter (host metrics) - Fast for resource monitoring
     prometheus.scrape "node_exporter" {
       targets = discovery.relabel.node_exporter.output

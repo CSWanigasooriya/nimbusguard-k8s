@@ -573,16 +573,6 @@ data:
               "expr": "dqn_lstm_next_60sec_pressure",
               "legendFormat": "60sec Pressure Forecast",
               "refId": "B"
-            },
-            {
-              "expr": "dqn_lstm_trend_velocity",
-              "legendFormat": "Trend Velocity",
-              "refId": "C"
-            },
-            {
-              "expr": "dqn_lstm_pattern_confidence",
-              "legendFormat": "Pattern Confidence",
-              "refId": "D"
             }
           ],
           "unit": "short",
