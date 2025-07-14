@@ -28,7 +28,7 @@ spec:
         - containerPort: 8080
           name: metrics
         - containerPort: 8081
-          name: health
+          name: healthz
         env:
         # OpenAI API key for LLM validation (OPTIONAL - only needed if LLM features are enabled)
         - name: OPENAI_API_KEY
