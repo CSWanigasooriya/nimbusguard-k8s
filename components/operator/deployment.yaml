@@ -90,11 +90,11 @@ spec:
         # === LSTM FORECASTING CONFIGURATION ===
         - name: FORECASTING_ENABLED
           value: "true"       # Enable LSTM forecasting
-        - name: FORECAST_HORIZON_MINUTES
-          value: "10"         # Forecast 10 minutes ahead
-        - name: FORECAST_LOOKBACK_MINUTES
-          value: "30"         # Use 30 minutes of historical data
-        - name: LSTM_HIDDEN_SIZE
+        - name: FORECASTING_HORIZON_MINUTES
+          value: "1"         # Forecast 10 minutes ahead
+        - name: FORECASTING_LOOKBACK_MINUTES
+          value: "5"         # Use 5 minutes of historical data
+        - name: LSTM_HIDDEN_UNITS
           value: "64"         # LSTM hidden layer size
         - name: LSTM_NUM_LAYERS
           value: "2"          # Number of LSTM layers
@@ -102,20 +102,24 @@ spec:
           value: "0.001"      # LSTM learning rate
         - name: FORECAST_RETRAIN_INTERVAL
           value: "60"         # Retrain LSTM every 60 minutes
+        - name: LSTM_SEQUENCE_LENGTH
+          value: "15"         # Sequence length for LSTM
+        - name: LSTM_MIN_TRAINING_SAMPLES
+          value: "20"         # Minimum samples for training
+        - name: LSTM_VALIDATION_SPLIT
+          value: "0.2"        # Validation split ratio
+        - name: LSTM_EARLY_STOPPING_PATIENCE
+          value: "10"         # Early stopping patience
+        - name: LSTM_BATCH_SIZE
+          value: "8"          # LSTM batch size
+        - name: LSTM_MAX_EPOCHS
+          value: "100"        # Maximum training epochs
         
-        # === CRITICAL: STABILIZATION PERIOD ===
-        - name: STABILIZATION_PERIOD_SECONDS
-          value: "10"         # Wait 10 seconds after action before reward calculation
+        # === REWARD SYSTEM CONFIGURATION ===
+        - name: REWARD_CURRENT_WEIGHT
+          value: "0.7"        # Weight for current state reward (forecast gets 1 - this value)
         
-        # === EVALUATION & MONITORING ===
-        - name: EVALUATION_INTERVAL
-          value: "300"        # Evaluate every 5 minutes
-        - name: ENABLE_EVALUATION_OUTPUTS
-          value: "true"       # Generate evaluation reports
-        - name: SAVE_INTERVAL_SECONDS
-          value: "300"        # Save model every 5 minutes
-        
-        # === DEPLOYMENT CONFIGURATION ===
+        # === SCALING CONFIGURATION ===
         - name: TARGET_DEPLOYMENT
           value: "consumer"   # Target deployment to scale
         - name: TARGET_NAMESPACE
