@@ -142,7 +142,7 @@ spec:
             - "5"
             - curl
             - "-f"
-            - "http://localhost:8080/healthz"
+            - "http://localhost:8081/healthz"
           initialDelaySeconds: 15
           periodSeconds: 10
           timeoutSeconds: 10
@@ -154,7 +154,7 @@ spec:
             - "5"
             - curl
             - "-f"
-            - "http://localhost:8080/healthz"
+            - "http://localhost:8081/healthz"
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 10
