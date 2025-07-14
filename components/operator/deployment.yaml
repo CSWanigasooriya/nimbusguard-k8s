@@ -52,12 +52,8 @@ spec:
           value: "0.1"  # Low temperature for consistent reasoning
         
         # === SIMPLIFIED AI CONFIGURATION ===
-        - name: ENABLE_DETAILED_REASONING
-          value: "true"  # Enable comprehensive AI reasoning logs
         - name: ENABLE_LLM_VALIDATION
           value: "false"     # DISABLED - Simplified DQN without LLM overrides
-        - name: ENABLE_LLM_REWARDS
-          value: "false"     # DISABLED - Using simplified metric-based rewards only
         
         # === DQN CONFIGURATION ===
         - name: DQN_EPSILON_START
