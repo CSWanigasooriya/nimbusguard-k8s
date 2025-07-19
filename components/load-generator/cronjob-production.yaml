@@ -1,23 +1,21 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: load-generator-prod
+  name: load-generator-hpa-scaling
   labels:
-    load-test: production-sim
+    load-test: hpa-scaling
 spec:
-  # Every minute launch a short-living Job that floods the service for 45 s
-  schedule: "*/1 * * * *"
-  concurrencyPolicy: Forbid           # don't start a new one if the previous run is still active
+  schedule: "*/5 * * * *"  # Every 4 minutes (longer interval for HPA to react)
+  concurrencyPolicy: Forbid         
   failedJobsHistoryLimit: 1
-  successfulJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 3
   jobTemplate:
     spec:
       backoffLimit: 0
-      activeDeadlineSeconds: 120       # hard stop per run
       template:
         metadata:
           labels:
-            load-test: production-sim
+            load-test: hpa-scaling
         spec:
           restartPolicy: Never
           initContainers:
@@ -36,13 +34,96 @@ spec:
           - name: load-generator
             image: nimbusguard-generator:latest
             imagePullPolicy: IfNotPresent
-            # Produce variable load: pick a random test each run
             command: ["bash", "-c"]
             args:
             - |
-              TESTS=(light medium heavy burst); RANDOM_TEST=${TESTS[$((RANDOM%${#TESTS[@]}))]};
-              echo "👉 Running $RANDOM_TEST pattern for this tick";
-              exec python load_generator.py --url=http://consumer:8000 --test=$RANDOM_TEST --monitor --cleanup;
+              # Fixed resource model: 40m CPU, 80MB memory, 35s duration per request
+              # Min replicas: 2 (baseline capacity ~10 requests)
+              # HPA triggers at: 140m CPU or 410MB memory PER POD
+              # Need 7+ concurrent requests to scale beyond 2 replicas
+              
+              # HPA-focused test scenarios (all designed to trigger scaling)
+              SCENARIOS=(
+                "scale_up_cpu:8:30"      # 8 concurrent (320m CPU) → should scale to 3 pods
+                "scale_up_memory:12:25"  # 12 concurrent (960MB) → should scale to 3-4 pods  
+                "heavy_load:15:40"       # 15 concurrent (600m CPU) → should scale to 4+ pods
+                "sustained_load:10:50"   # 10 concurrent (400m CPU) → should scale to 3 pods
+                "burst_test:20:30"       # 20 concurrent (800m CPU) → should scale to 5+ pods
+                "progressive:6:20"       # 6 concurrent (240m CPU) → minimal scaling test
+              )
+              
+              # Pick random scenario
+              SCENARIO=${SCENARIOS[$((RANDOM%${#SCENARIOS[@]}))]}
+              IFS=':' read -r TEST_NAME CONCURRENT TOTAL <<< "$SCENARIO"
+              
+              # Calculate expected resource usage
+              EXPECTED_CPU_MILLICORES=$((CONCURRENT * 40))
+              EXPECTED_MEMORY_MB=$((CONCURRENT * 80))
+              
+              # Calculate expected pods needed (accounting for 2 min replicas)
+              # Each pod can handle ~5 requests before hitting limits
+              EXPECTED_PODS=$(( (CONCURRENT + 4) / 5 ))
+              EXPECTED_PODS=$((EXPECTED_PODS < 2 ? 2 : EXPECTED_PODS))
+              
+              echo "🎯 Running HPA scaling test: $TEST_NAME"
+              echo "📊 Test params: $CONCURRENT concurrent, $TOTAL total requests"
+              echo "🔧 Fixed per-request: 40m CPU, 80MB memory, 35s duration"
+              echo "📈 Expected usage: ${EXPECTED_CPU_MILLICORES}m CPU, ${EXPECTED_MEMORY_MB}MB memory"
+              echo "🏗️  Expected pods: $EXPECTED_PODS (min 2)"
+              
+              # Determine scaling expectation
+              if [ $CONCURRENT -lt 7 ]; then
+                echo "😴 Load likely insufficient for scaling beyond 2 replicas"
+                echo "   Need 7+ concurrent requests (280m CPU) to trigger scaling"
+              else
+                SCALE_FACTOR=$(( (EXPECTED_CPU_MILLICORES + 139) / 140 ))
+                echo "🚀 Should scale to ~$SCALE_FACTOR pods based on CPU"
+                echo "   Current: ${EXPECTED_CPU_MILLICORES}m CPU ÷ 140m threshold = $SCALE_FACTOR pods"
+              fi
+              
+              # Add some variety to delay between requests
+              DELAY_OPTIONS=(0.5 1.0 1.5 2.0)
+              DELAY=${DELAY_OPTIONS[$((RANDOM%${#DELAY_OPTIONS[@]}))]}
+              
+              echo "⏱️  Using ${DELAY}s delay between requests"
+              echo "🎲 Random seed: $RANDOM"
+              echo ""
+              
+              # Run the test with parameters designed to trigger HPA scaling
+              exec python load_generator.py \
+                --url=http://consumer:8000 \
+                --test-name="HPA Scaling Test: $TEST_NAME" \
+                --description="Testing HPA scaling with min 2 replicas" \
+                --concurrent=$CONCURRENT \
+                --total=$TOTAL \
+                --delay=$DELAY \
+                --async-mode \
+                --monitor \
+                --seed=$RANDOM
             resources:
               requests: {cpu: "100m", memory: "128Mi"}
-              limits:   {cpu: "300m", memory: "256Mi"} 
+              limits:   {cpu: "300m", memory: "256Mi"}
+          # Optional: Add a sidecar to monitor HPA decisions
+          - name: hpa-monitor
+            image: bitnami/kubectl:latest
+            command: ["sh", "-c"]
+            args:
+            - |
+              echo "📊 Monitoring HPA scaling decisions..."
+              
+              # Wait for main load test to start
+              sleep 10
+              
+              # Monitor HPA status during test
+              for i in {1..20}; do
+                echo "--- HPA Status Check $i ---"
+                kubectl get hpa -o wide 2>/dev/null || echo "No HPA found"
+                kubectl get pods -l app=consumer -o wide 2>/dev/null || echo "No consumer pods found"
+                echo "Sleeping 15s..."
+                sleep 15
+              done
+              
+              echo "📊 HPA monitoring complete"
+            resources:
+              requests: {cpu: "10m", memory: "16Mi"}
+              limits:   {cpu: "50m", memory: "32Mi"}

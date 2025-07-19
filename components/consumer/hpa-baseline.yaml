@@ -14,7 +14,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: consumer
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 50
   metrics:
   # CPU-based scaling (same thresholds)
@@ -33,16 +33,16 @@ spec:
         averageUtilization: 80
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 0   # React quickly to load spikes
-      selectPolicy: Min               # Use the more conservative policy
+      stabilizationWindowSeconds: 30  
+      selectPolicy: Min
       policies:
       - type: Pods
-        value: 1                      # Add exactly 1 pod per cycle (like DQN)
-        periodSeconds: 15             # Standard HPA evaluation period
+        value: 1
+        periodSeconds: 15
     scaleDown:
-      stabilizationWindowSeconds: 0   # Instant  scaling down (like DQN)
-      selectPolicy: Min               # Use the more conservative policy
+      stabilizationWindowSeconds: 30  
+      selectPolicy: Min
       policies:
       - type: Pods
-        value: 1                      # Remove exactly 1 pod per cycle (like DQN)
-        periodSeconds: 15             # Same evaluation period as scale-up 
+        value: 1
+        periodSeconds: 15 
