@@ -142,24 +142,41 @@ spec:
                 "wind_down:1:20"
               )
               
-              # Pick random scenario
-              SCENARIO=${SCENARIOS[$((RANDOM%${#SCENARIOS[@]}))]}
-              IFS=':' read -r TEST_NAME CONCURRENT TOTAL <<< "$SCENARIO"
+              # Number of scenarios to run (3-5 random scenarios per job)
+              NUM_SCENARIOS=$((3 + RANDOM % 3))  # Random between 3-5
+              echo "Running $NUM_SCENARIOS random scenarios in this job"
               
-              # Random delay between requests
-              DELAY_OPTIONS=(0.5 1.0 1.5 2.0)
-              DELAY=${DELAY_OPTIONS[$((RANDOM%${#DELAY_OPTIONS[@]}))]}
+              # Shuffle scenarios and pick the first NUM_SCENARIOS
+              SELECTED_SCENARIOS=($(printf '%s\n' "${SCENARIOS[@]}" | shuf | head -n $NUM_SCENARIOS))
               
-              echo "Running test: $TEST_NAME"
-              echo "Concurrent requests: $CONCURRENT"
-              echo "Total requests: $TOTAL"
+              for i in "${!SELECTED_SCENARIOS[@]}"; do
+                SCENARIO=${SELECTED_SCENARIOS[$i]}
+                IFS=':' read -r TEST_NAME CONCURRENT TOTAL <<< "$SCENARIO"
+                
+                # Random delay between requests
+                DELAY_OPTIONS=(0.5 1.0 1.5 2.0)
+                DELAY=${DELAY_OPTIONS[$((RANDOM%${#DELAY_OPTIONS[@]}))]}
+                
+                echo ""
+                echo "=== Scenario $((i+1))/$NUM_SCENARIOS: $TEST_NAME ==="
+                echo "Concurrent: $CONCURRENT | Total: $TOTAL | Delay: ${DELAY}s"
+                
+                # Run the load test
+                python load_generator.py \
+                  --url=http://consumer:8000 \
+                  --concurrent=$CONCURRENT \
+                  --total=$TOTAL \
+                  --delay=$DELAY
+                
+                # Brief pause between scenarios (except for the last one)
+                if [ $((i+1)) -lt $NUM_SCENARIOS ]; then
+                  echo "Pausing 10s between scenarios..."
+                  sleep 10
+                fi
+              done
               
-              # Run the load test
-              exec python load_generator.py \
-                --url=http://consumer:8000 \
-                --concurrent=$CONCURRENT \
-                --total=$TOTAL \
-                --delay=$DELAY
+              echo ""
+              echo "✅ Completed $NUM_SCENARIOS scenarios successfully"
             resources:
               requests: {cpu: "100m", memory: "128Mi"}
               limits:   {cpu: "300m", memory: "256Mi"}
