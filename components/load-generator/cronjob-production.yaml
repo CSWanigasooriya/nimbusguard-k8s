@@ -1,11 +1,11 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: load-generator-hpa-scaling
+  name: load-generator
   labels:
     load-test: hpa-scaling
 spec:
-  schedule: "*/3 * * * *"
+  schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid         
   failedJobsHistoryLimit: 1
   successfulJobsHistoryLimit: 3
@@ -15,7 +15,7 @@ spec:
       template:
         metadata:
           labels:
-            load-test: hpa-scaling
+            load-test: random-scaling
         spec:
           restartPolicy: Never
           initContainers:
