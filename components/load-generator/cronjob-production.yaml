@@ -142,12 +142,49 @@ spec:
                 "wind_down:1:20"
               )
               
-              # Number of scenarios to run (3-5 random scenarios per job)
-              NUM_SCENARIOS=$((3 + RANDOM % 3))  # Random between 3-5
-              echo "Running $NUM_SCENARIOS random scenarios in this job"
+              # Categorize scenarios for balanced selection
+              SCALE_DOWN_SCENARIOS=(
+                "cooldown_zero:0:5" "cooldown_minimal:1:5" "idle_period:0:3" "rest_phase:1:8" 
+                "downtime:0:10" "minimal_activity:1:12" "quiet_period:0:7" "low_activity:1:15"
+                "scale_down_test:0:6" "baseline_cooldown:1:10" "recovery_phase:0:8" 
+                "post_load_cooldown:1:6" "system_rest:0:12" "gradual_decline:2:10" "wind_down:1:20"
+                "minimal_load:2:10" "light_load:3:15"
+              )
               
-              # Shuffle scenarios and pick the first NUM_SCENARIOS
-              SELECTED_SCENARIOS=($(printf '%s\n' "${SCENARIOS[@]}" | shuf | head -n $NUM_SCENARIOS))
+              SCALE_UP_SCENARIOS=(
+                "medium_burst:11:25" "scaling_point:12:30" "moderate_load:13:35" "sustained_medium:14:40"
+                "high_threshold:16:30" "heavy_load:17:35" "stress_test:18:40" "peak_load:19:45"
+                "extreme_burst:21:35" "high_sustained:22:40" "stress_sustained:23:45" "peak_stress:24:50"
+                "overload_burst:31:45" "extreme_sustained:32:50" "critical_load:33:55" "max_capacity:34:60"
+                "ultra_burst:41:55" "ultra_sustained:42:60" "ultra_stress:43:65" "ultra_peak:44:70"
+              )
+              
+              NEUTRAL_SCENARIOS=(
+                "low_burst:4:20" "small_sustained:5:25" "threshold_test:6:20" "medium_light:7:25"
+                "steady_medium:8:30" "ramp_up:9:35" "standard_load:10:40" "peak_medium:15:45"
+                "quick_burst:15:20" "extended_load:10:80" "marathon_test:8:100" "sprint_test:25:15"
+                "pattern_a:6:25" "pattern_b:13:30" "pattern_c:18:35" "pattern_d:23:40"
+              )
+              
+              # Ensure balanced selection: pick at least 1 from each category
+              NUM_SCENARIOS=$((3 + RANDOM % 3))  # Random between 3-5
+              echo "Running $NUM_SCENARIOS balanced scenarios (scale-up, scale-down, neutral)"
+              
+              # Guarantee at least 1 scenario from each category
+              SELECTED_SCENARIOS=()
+              SELECTED_SCENARIOS+=($(printf '%s\n' "${SCALE_DOWN_SCENARIOS[@]}" | shuf | head -n 1))
+              SELECTED_SCENARIOS+=($(printf '%s\n' "${SCALE_UP_SCENARIOS[@]}" | shuf | head -n 1))
+              SELECTED_SCENARIOS+=($(printf '%s\n' "${NEUTRAL_SCENARIOS[@]}" | shuf | head -n 1))
+              
+              # Fill remaining slots randomly from all categories
+              if [ $NUM_SCENARIOS -gt 3 ]; then
+                ALL_REMAINING=("${SCALE_DOWN_SCENARIOS[@]}" "${SCALE_UP_SCENARIOS[@]}" "${NEUTRAL_SCENARIOS[@]}")
+                ADDITIONAL=($(printf '%s\n' "${ALL_REMAINING[@]}" | shuf | head -n $((NUM_SCENARIOS - 3))))
+                SELECTED_SCENARIOS+=("${ADDITIONAL[@]}")
+              fi
+              
+              # Shuffle the final selection to randomize execution order
+              SELECTED_SCENARIOS=($(printf '%s\n' "${SELECTED_SCENARIOS[@]}" | shuf))
               
               for i in "${!SELECTED_SCENARIOS[@]}"; do
                 SCENARIO=${SELECTED_SCENARIOS[$i]}
@@ -176,7 +213,7 @@ spec:
               done
               
               echo ""
-              echo "✅ Completed $NUM_SCENARIOS scenarios successfully"
+              echo "✅ Completed $NUM_SCENARIOS balanced scenarios (scale-up/down/neutral)"
             resources:
               requests: {cpu: "100m", memory: "128Mi"}
               limits:   {cpu: "300m", memory: "256Mi"}
