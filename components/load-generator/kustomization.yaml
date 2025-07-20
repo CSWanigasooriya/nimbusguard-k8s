@@ -12,7 +12,7 @@ resources:
   # - job-memory-stress.yaml
   # - job-cpu-stress.yaml
   # - job-comparison-baseline.yaml 
-  # - cronjob-production.yaml
+  - cronjob-production.yaml
 
 labels:
   - pairs:
