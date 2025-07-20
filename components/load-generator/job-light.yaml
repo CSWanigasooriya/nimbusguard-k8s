@@ -33,11 +33,10 @@ spec:
       containers:
       - name: load-generator
         image: nimbusguard-generator:latest
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         args:
         - --url=http://consumer:8000
         - --test=light
-        - --cleanup
         resources:
           requests:
             memory: "128Mi"

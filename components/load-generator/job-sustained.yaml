@@ -37,8 +37,6 @@ spec:
         args:
         - --url=http://consumer:8000
         - --test=sustained
-        - --monitor
-        - --cleanup
         resources:
           requests:
             memory: "128Mi"

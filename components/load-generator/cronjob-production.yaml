@@ -5,7 +5,7 @@ metadata:
   labels:
     load-test: hpa-scaling
 spec:
-  schedule: "*/5 * * * *"
+  schedule: "*/3 * * * *"
   concurrencyPolicy: Forbid         
   failedJobsHistoryLimit: 1
   successfulJobsHistoryLimit: 3
@@ -156,13 +156,9 @@ spec:
               # Run the load test
               exec python load_generator.py \
                 --url=http://consumer:8000 \
-                --test-name="HPA Scaling Test: $TEST_NAME" \
-                --description="Testing HPA scaling with min 2 replicas" \
                 --concurrent=$CONCURRENT \
                 --total=$TOTAL \
-                --delay=$DELAY \
-                --async-mode \
-                --seed=$RANDOM
+                --delay=$DELAY
             resources:
               requests: {cpu: "100m", memory: "128Mi"}
               limits:   {cpu: "300m", memory: "256Mi"}

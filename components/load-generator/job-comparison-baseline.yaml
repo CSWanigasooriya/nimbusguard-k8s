@@ -1,16 +1,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: load-test-4phase-continuous-hpa
+  name: load-test-baseline
   namespace: nimbusguard
   labels:
-    load-test: 4phase-continuous-hpa
+    load-test: baseline-continuous-hpa
     experiment: continuous-scaling-test
 spec:
   template:
     metadata:
       labels:
-        load-test: 4phase-hpa-scaling
+        load-test: load-test-baseline
     spec:
       restartPolicy: Never
       initContainers:
@@ -39,132 +39,41 @@ spec:
         command: ['bash', '-c']
         args:
         - |-
-          echo "🎯 Starting 4-Phase Continuous HPA Scaling Test"
-          echo "🔧 Resource Model: 25m CPU, 75MB memory per request"
-          echo "📊 HPA Thresholds: 140m CPU (70% of 200m), 410MB memory (80% of 512Mi)"
-          echo "⚖️  HPA Trigger Point: ~6 requests per pod (6*25m=150m CPU, 6*75MB=450MB)"
-          echo "🎲 Deterministic seed: 12345 for consistent results"
-          echo "⚡ Continuous phases - no delays between transitions"
-          echo ""
+          echo "Starting Baseline Continuous HPA Scaling Test"
 
-          # Record start time
-          START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "🕐 Test started at: $START_TIME"
-          echo ""
-
-          # Phase 1: Warm-up (Below HPA threshold)
-          echo "📊 PHASE 1: Warm-up (Below HPA Threshold)"
-          echo "  Goal: Establish baseline load without triggering HPA"
-          echo "  Load: 4 concurrent requests, 40 total requests, 3s delay"
-          echo "  Expected CPU: 4 * 25m = 100m (below 140m threshold)"
-          echo "  Expected Memory: 4 * 75MB = 300MB (below 410MB threshold)"
-          echo "  HPA Status: Should remain at 2 replicas"
-          echo ""
-
+          # Phase 1: Warm-up
+          echo "Phase 1/4: Concurrent=4, Total=40"
           python load_generator.py \
             --url=http://consumer:8000 \
-            --test-name="Phase 1: Warm-up" \
-            --description="Baseline load below HPA thresholds" \
             --concurrent=4 \
             --total=40 \
-            --delay=3.0 \
-            --async-mode \
-            --seed=12345
+            --delay=3.0
 
-          echo "⏱️ Phase 1 complete. Starting Phase 2 immediately..."
-
-          # Phase 2: Gradual Ramp-up (Trigger HPA)
-          echo "📊 PHASE 2: Gradual Ramp-up (Trigger HPA)"
-          echo "  Goal: Cross HPA threshold and trigger initial scaling"
-          echo "  Load: 8 concurrent requests, 60 total requests, 2s delay"
-          echo "  Expected CPU: 8 * 25m = 200m (above 140m threshold)"
-          echo "  Expected Memory: 8 * 75MB = 600MB (above 410MB threshold)"
-          echo "  HPA Status: Should scale to 3-4 replicas"
-          echo ""
-
+          # Phase 2: Gradual Ramp-up
+          echo "Phase 2/4: Concurrent=8, Total=60"
           python load_generator.py \
             --url=http://consumer:8000 \
-            --test-name="Phase 2: Gradual Ramp-up" \
-            --description="Cross HPA threshold and trigger scaling" \
             --concurrent=8 \
             --total=60 \
-            --delay=2.0 \
-            --async-mode \
-            --seed=12346
+            --delay=2.0
 
-          echo "⏱️ Phase 2 complete. Starting Phase 3 immediately..."
-
-          # Phase 3: Peak Load (High scaling)
-          echo "📊 PHASE 3: Peak Load (High Scaling)"
-          echo "  Goal: Test maximum scaling capability under peak load"
-          echo "  Load: 15 concurrent requests, 90 total requests, 1.5s delay"
-          echo "  Expected CPU: 15 * 25m = 375m (requires multiple pods)"
-          echo "  Expected Memory: 15 * 75MB = 1125MB (requires multiple pods)"
-          echo "  HPA Status: Should scale to 5-6 replicas"
-          echo ""
-
+          # Phase 3: Peak Load
+          echo "Phase 3/4: Concurrent=15, Total=90"
           python load_generator.py \
             --url=http://consumer:8000 \
-            --test-name="Phase 3: Peak Load" \
-            --description="High load requiring maximum scaling" \
             --concurrent=15 \
             --total=90 \
-            --delay=1.5 \
-            --async-mode \
-            --seed=12347
+            --delay=1.5
 
-          echo "⏱️ Phase 3 complete. Starting Phase 4 immediately..."
-
-          # Phase 4: Gradual Cooldown (Scale-down observation)
-          echo "📊 PHASE 4: Gradual Cooldown (Scale-down)"
-          echo "  Goal: Observe gradual scale-down behavior"
-          echo "  Load: 3 concurrent requests, 30 total requests, 4s delay"
-          echo "  Expected CPU: 3 * 25m = 75m (below 140m threshold)"
-          echo "  Expected Memory: 3 * 75MB = 225MB (below 410MB threshold)"
-          echo "  HPA Status: Should gradually scale back down to 2 replicas"
-          echo ""
-
+          # Phase 4: Gradual Cooldown
+          echo "Phase 4/4: Concurrent=3, Total=30"
           python load_generator.py \
             --url=http://consumer:8000 \
-            --test-name="Phase 4: Gradual Cooldown" \
-            --description="Gradual scale-down back to baseline" \
             --concurrent=3 \
             --total=30 \
-            --delay=4.0 \
-            --async-mode \
-            --seed=12348
+            --delay=4.0
 
-          echo "⏱️ Phase 4 complete. Test finished."
-
-          END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo ""
-          echo "✅ 4-Phase Continuous HPA Scaling Test Complete!"
-          echo "🕐 Test finished at: $END_TIME"
-          echo ""
-          echo "📊 Phase Summary (Continuous Transitions):"
-          echo "  Phase 1: Warm-up     (4 concurrent)  - Below HPA threshold"
-          echo "  Phase 2: Ramp-up     (8 concurrent)  - Trigger HPA scaling"
-          echo "  Phase 3: Peak Load   (15 concurrent) - Maximum scaling"
-          echo "  Phase 4: Cooldown    (3 concurrent)  - Scale-down observation"
-          echo ""
-          echo "🔧 Resource Model: 25m CPU, 75MB Memory per request"
-          echo "📈 HPA Thresholds: 140m CPU, 410MB Memory per pod"
-          echo "⚖️  HPA Trigger Point: ~6 requests per pod"
-          echo "⚡ Continuous transitions allow real-time HPA response observation"
-          echo ""
-          echo "🔍 Post-Test Analysis Commands:"
-          echo "  kubectl describe hpa consumer-hpa -n nimbusguard"
-          echo "  kubectl get pods -l app.kubernetes.io/name=consumer -n nimbusguard"
-          echo "  kubectl top pods -l app.kubernetes.io/name=consumer -n nimbusguard"
-          echo "  kubectl get events -n nimbusguard --sort-by='.lastTimestamp'"
-          echo ""
-          echo "📋 Expected Scaling Pattern (Continuous):"
-          echo "  • Start: 2 replicas (minimum)"
-          echo "  • Phase 1: Remain at 2 replicas (load below threshold)"
-          echo "  • Phase 2→3: Continuous scale-up to 5-6 replicas"
-          echo "  • Phase 4: Scale-down back to 2 replicas"
-          echo ""
-          echo "✅ Continuous test data available for HPA behavior analysis!"
+          echo "4-Phase test complete"
         resources:
           requests:
             memory: "128Mi"
@@ -173,5 +82,4 @@ spec:
             memory: "256Mi"
             cpu: "200m"
   backoffLimit: 1
-  # Total duration without delays: ~6 + 8 + 9 + 8 = ~31 minutes
-  activeDeadlineSeconds: 2400  # 40 minutes for safety buffer
+  activeDeadlineSeconds: 2400
