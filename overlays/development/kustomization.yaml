@@ -9,7 +9,7 @@ components:
   - ../../components/consumer
   - ../../components/operator
   - ../../components/redis
-  - ../../components/minio
+  # - ../../components/minio
   - ../../components/monitoring
   - ../../components/dashboards
   - ../../components/load-generator

@@ -5,7 +5,7 @@ metadata:
   annotations:
     # NimbusGuard scaling constraints
     nimbusguard.io/min-replicas: "2"
-    nimbusguard.io/max-replicas: "10"
+    nimbusguard.io/max-replicas: "50"
 spec:
   replicas: 2
   selector:
