@@ -60,12 +60,10 @@ spec:
           value: "0.2"    # Start with 20% exploration
         - name: DQN_EPSILON_END
           value: "0.01"   # End with 1% exploration
-        - name: DQN_EPSILON_DECAY
-          value: "0.995"  # Gradual decay for stable learning
         - name: DQN_GAMMA
           value: "0.99"       # Standard discount factor
         - name: DQN_LEARNING_RATE
-          value: "0.001"      # Balanced learning rate
+          value: "0.0001"      # Reduced for stable training
         - name: DQN_MEMORY_CAPACITY
           value: "10000"      # Smaller replay buffer for faster learning
         - name: DQN_BATCH_SIZE
@@ -78,30 +76,12 @@ spec:
         # === LSTM FORECASTING CONFIGURATION ===
         - name: FORECASTING_ENABLED
           value: "true"       # Enable LSTM forecasting
-        - name: FORECASTING_HORIZON_MINUTES
-          value: "1"         # Forecast 10 minutes ahead
+        - name: FORECASTING_HORIZON_SECONDS
+          value: "15"         # Forecast 15 seconds ahead (1 step)
         - name: FORECASTING_LOOKBACK_MINUTES
-          value: "5"         # Use 5 minutes of historical data
-        - name: LSTM_HIDDEN_UNITS
-          value: "64"         # LSTM hidden layer size
-        - name: LSTM_NUM_LAYERS
-          value: "2"          # Number of LSTM layers
-        - name: LSTM_LEARNING_RATE
-          value: "0.001"      # LSTM learning rate
-        - name: LSTM_RETRAIN_INTERVAL_MINUTES
-          value: "60"         # Retrain LSTM every 60 minutes
+          value: "6"          # Use 6 minutes of historical data (24 timesteps × 15s)
         - name: LSTM_SEQUENCE_LENGTH
-          value: "15"         # Sequence length for LSTM
-        - name: LSTM_MIN_TRAINING_SAMPLES
-          value: "20"         # Minimum samples for training
-        - name: LSTM_VALIDATION_SPLIT
-          value: "0.2"        # Validation split ratio
-        - name: LSTM_EARLY_STOPPING_PATIENCE
-          value: "10"         # Early stopping patience
-        - name: LSTM_BATCH_SIZE
-          value: "8"          # LSTM batch size
-        - name: LSTM_MAX_EPOCHS
-          value: "100"        # Maximum training epochs
+          value: "24"         # Sequence length for LSTM (matches training)
         
         # === REWARD SYSTEM CONFIGURATION ===
         - name: REWARD_CURRENT_WEIGHT
@@ -112,12 +92,8 @@ spec:
           value: "consumer"   # Target deployment to scale
         - name: TARGET_NAMESPACE
           value: "nimbusguard"
-        - name: MIN_REPLICAS
-          value: "1"          # Minimum replica count
-        - name: MAX_REPLICAS
-          value: "50"         # Maximum replica count
         - name: STABILIZATION_PERIOD_SECONDS
-          value: "30"         # Wait 30 seconds after action before reward calculation
+          value: "15"         # Operator decision frequency
         
         # === SERVER CONFIGURATION ===
         - name: SERVER_PORT

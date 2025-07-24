@@ -19,238 +19,6 @@ data:
       options:
         path: /var/lib/grafana/dashboards
   
-  # General research dashboard - DQN vs HPA vs KEDA comparison
-  nimbusguard-research.json: |
-    {
-      "id": null,
-      "title": "NimbusGuard Research - DQN vs HPA vs KEDA Comparison",
-      "tags": ["nimbusguard", "research", "dqn", "hpa", "keda", "autoscaling"],
-      "timezone": "browser",
-      "panels": [
-        {
-          "id": 1,
-          "title": "Replica Count Evolution",
-          "type": "timeseries",
-          "targets": [
-            {
-              "expr": "nimbusguard_current_replicas",
-              "legendFormat": "Current Replicas",
-              "refId": "A"
-            },
-            {
-              "expr": "nimbusguard_dqn_desired_replicas",
-              "legendFormat": "DQN Desired Replicas",
-              "refId": "B"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 0
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom"
-            }
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "drawStyle": "line",
-                "lineInterpolation": "linear",
-                "barAlignment": 0,
-                "lineWidth": 2,
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "spanNulls": false
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          }
-        },
-        {
-          "id": 2,
-          "title": "Response Time Comparison (P95)",
-          "type": "timeseries",
-          "targets": [
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{instance=\"consumer:8000\"}[5m])) by (le))",
-              "legendFormat": "P95 Response Time",
-              "refId": "A"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 0
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "unit": "s"
-            }
-          }
-        },
-        {
-          "id": 3,
-          "title": "HTTP Request Rate",
-          "type": "timeseries",
-          "targets": [
-            {
-              "expr": "sum(rate(http_requests_total{instance=\"consumer:8000\"}[5m]))",
-              "legendFormat": "Request Rate",
-              "refId": "A"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 0,
-            "y": 8
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "unit": "reqps"
-            }
-          }
-        },
-        {
-          "id": 4,
-          "title": "System Resource Usage",
-          "type": "timeseries",
-          "targets": [
-            {
-              "expr": "sum(rate(process_cpu_seconds_total{instance=\"consumer:8000\"}[5m])) * 100",
-              "legendFormat": "CPU Usage %",
-              "refId": "A"
-            },
-            {
-              "expr": "sum(process_resident_memory_bytes{instance=\"consumer:8000\"}) / 1024 / 1024",
-              "legendFormat": "Memory Usage MB",
-              "refId": "B"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 8
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "unit": "short"
-            }
-          }
-        },
-        {
-          "id": 5,
-          "title": "SLA Compliance (Sub-500ms)",
-          "type": "stat",
-          "targets": [
-            {
-              "expr": "(sum(rate(http_request_duration_seconds_bucket{le=\"0.5\", instance=\"consumer:8000\"}[5m])) / sum(rate(http_request_duration_seconds_count{instance=\"consumer:8000\"}[5m]))) * 100",
-              "legendFormat": "SLA Compliance %",
-              "refId": "A"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 8
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 90
-                  },
-                  {
-                    "color": "green",
-                    "value": 95
-                  }
-                ]
-              },
-              "unit": "percent"
-            }
-          }
-        },
-        {
-          "id": 6,
-          "title": "Scaling Events Timeline",
-          "type": "timeseries",
-          "targets": [
-            {
-              "expr": "changes(nimbusguard_dqn_desired_replicas[5m])",
-              "legendFormat": "DQN Decision Changes (5m)",
-              "refId": "A"
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 16
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "fixedColor": "red",
-                "mode": "fixed"
-              },
-              "custom": {
-                "drawStyle": "bars",
-                "lineInterpolation": "linear",
-                "lineWidth": 2,
-                "fillOpacity": 0.8,
-                "gradientMode": "none",
-                "spanNulls": false
-              },
-              "unit": "short"
-            }
-          }
-        }
-      ],
-      "time": {
-        "from": "now-6h",
-        "to": "now"
-      },
-      "refresh": "5s",
-      "schemaVersion": 30,
-      "version": 1,
-      "links": [],
-      "templating": {
-        "list": []
-      },
-      "annotations": {
-        "list": []
-      }
-    }
   
   # DQN research dashboard - AI/ML specific metrics
   dqn-research-dashboard.json: |
@@ -561,23 +329,32 @@ data:
         },
         {
           "id": 6,
-          "title": "LSTM Feature Analysis",
+          "title": "LSTM Forecast vs Current Metrics",
           "type": "timeseries",
           "targets": [
             {
-              "expr": "dqn_lstm_next_30sec_pressure",
-              "legendFormat": "30sec Pressure Forecast",
+              "expr": "lstm_forecast_cpu_rate",
+              "legendFormat": "LSTM Predicted CPU Rate",
               "refId": "A"
             },
             {
-              "expr": "dqn_lstm_next_60sec_pressure",
-              "legendFormat": "60sec Pressure Forecast",
+              "expr": "sum(rate(process_cpu_seconds_total{job=~\"prometheus.scrape.annotated_pods\", instance=~\".*:8000\"}[30s]))",
+              "legendFormat": "Current CPU Rate",
               "refId": "B"
+            },
+            {
+              "expr": "lstm_forecast_memory_bytes",
+              "legendFormat": "LSTM Predicted Memory (bytes)",
+              "refId": "C"
+            },
+            {
+              "expr": "sum(process_resident_memory_bytes{job=~\"prometheus.scrape.annotated_pods\", instance=~\".*:8000\"})",
+              "legendFormat": "Current Memory (bytes)",
+              "refId": "D"
             }
           ],
           "unit": "short",
           "min": 0,
-          "max": 1,
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
           "fieldConfig": {
             "defaults": {
@@ -588,7 +365,33 @@ data:
                 "lineWidth": 2,
                 "fillOpacity": 5
               }
-            }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".*Memory.*"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp", 
+                  "options": ".*CPU.*"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              }
+            ]
           }
         },
         {
