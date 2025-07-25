@@ -98,7 +98,11 @@ data:
             {
               "expr": "dqn_training_loss",
               "legendFormat": "Training Loss",
-              "refId": "A"
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
             }
           ],
           "unit": "short",
@@ -329,12 +333,12 @@ data:
         },
         {
           "id": 6,
-          "title": "LSTM Forecast vs Current Metrics",
+          "title": "AI Forecast vs Current Metrics",
           "type": "timeseries",
           "targets": [
             {
-              "expr": "lstm_forecast_cpu_rate",
-              "legendFormat": "LSTM Predicted CPU Rate",
+              "expr": "gru_forecast_cpu_rate",
+              "legendFormat": "GRU Predicted CPU Rate",
               "refId": "A"
             },
             {
