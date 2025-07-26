@@ -3,7 +3,7 @@ kind: Component
 
 resources:
   # Comment out for baseline evaluation (use traditional HPA instead)
-  # - scaledobject-enhanced.yaml
+  # - scaledobject-baseline.yaml
  
 labels:
   - pairs:

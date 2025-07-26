@@ -342,7 +342,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "sum(rate(process_cpu_seconds_total{job=~\"prometheus.scrape.annotated_pods\", instance=~\".*:8000\"}[30s]))",
+              "expr": "sum(rate(process_cpu_seconds_total{job=~\"prometheus.scrape.annotated_pods\", instance=~\".*:8000\"}[15s]))",
               "legendFormat": "Current CPU Rate",
               "refId": "B"
             },

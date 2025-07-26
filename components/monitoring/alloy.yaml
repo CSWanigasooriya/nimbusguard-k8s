@@ -114,6 +114,38 @@ data:
       }
     }
 
+    // Discover Kubernetes Nodes for cAdvisor
+    discovery.kubernetes "nodes" {
+      role = "node"
+    }
+
+    // Node discovery relabeling for cAdvisor (kubelet integrated)
+    discovery.relabel "cadvisor" {
+      targets = discovery.kubernetes.nodes.targets
+      rule {
+        source_labels = ["__address__"]
+        regex = "(.+):.*"
+        replacement = "${1}:10250"
+        target_label = "__address__"
+        action = "replace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_node_name"]
+        target_label = "node"
+        action = "replace"
+      }
+      rule {
+        target_label = "__metrics_path__"
+        replacement = "/metrics/cadvisor"
+        action = "replace"
+      }
+      rule {
+        target_label = "__scheme__"
+        replacement = "https"
+        action = "replace"
+      }
+    }
+
     // Pod discovery relabeling for annotated pods
     discovery.relabel "annotated_pods" {
       targets = discovery.kubernetes.pods.targets
@@ -167,6 +199,25 @@ data:
       forward_to = [prometheus.remote_write.default.receiver]
       scrape_interval = "1s"  // Real-time for DQN decisions and metrics
       scrape_timeout = "800ms"  // Must be less than scrape_interval
+    }
+
+    // Scrape cAdvisor for container metrics - Real-time container insights
+    prometheus.scrape "cadvisor" {
+      targets = discovery.relabel.cadvisor.output
+      forward_to = [prometheus.remote_write.default.receiver]
+      scrape_interval = "5s"   // Container metrics every 5 seconds
+      scrape_timeout = "4s"    // Must be less than scrape_interval
+      
+      // Add job label to distinguish cAdvisor metrics
+      job_name = "cadvisor"
+      
+      // TLS configuration for kubelet
+      tls_config {
+        insecure_skip_verify = true  // For development environments
+      }
+      
+      // Bearer token for kubelet authentication
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
     }
 
     // ============= LOGS =============

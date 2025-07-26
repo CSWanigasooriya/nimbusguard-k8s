@@ -13,7 +13,7 @@ rules:
   resources: ["events"]
   verbs: ["create", "patch"]
 - apiGroups: ["apps"]
-  resources: ["deployments", "replicasets"]
+  resources: ["deployments", "replicasets", "deployments/scale"]
   verbs: ["get", "list", "watch", "patch", "update"]
 - apiGroups: [""]
   resources: ["pods"]
