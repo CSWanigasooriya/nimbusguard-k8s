@@ -57,19 +57,19 @@ metadata:
 data:
   config.alloy: |
     // ============= METRICS =============
-    // Prometheus metrics forwarding
+    // Prometheus metrics forwarding - MAXIMUM SPEED CONFIGURATION
     prometheus.remote_write "default" {
       endpoint {
         url = "http://prometheus:9090/api/v1/write"
       }
     }
 
-    // Discover Kubernetes Services  
+    // Discover Kubernetes Services - ULTRA-FAST discovery 
     discovery.kubernetes "services" {
       role = "service"
     }
 
-    // Discover Kubernetes Pods for metric scraping
+    // Discover Kubernetes Pods for metric scraping - ULTRA-FAST discovery
     discovery.kubernetes "pods" {
       role = "pod"
     }
@@ -114,7 +114,7 @@ data:
       }
     }
 
-    // Discover Kubernetes Nodes for cAdvisor
+    // Discover Kubernetes Nodes for cAdvisor - ULTRA-FAST discovery
     discovery.kubernetes "nodes" {
       role = "node"
     }
@@ -169,44 +169,44 @@ data:
       }
     }
 
-    // Scrape Node Exporter (host metrics) - Fast for resource monitoring
+    // Scrape Node Exporter (host metrics) - ULTRA-FAST for resource monitoring
     prometheus.scrape "node_exporter" {
       targets = discovery.relabel.node_exporter.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "5s"  // Fast for infrastructure monitoring
-      scrape_timeout = "4s"   // Must be less than scrape_interval
+      scrape_interval = "1s"   // Ultra-fast for critical infrastructure metrics
+      scrape_timeout = "800ms" // Aggressive timeout for speed
     }
 
-    // Scrape Kube State Metrics (Kubernetes object state) - Fast for cluster state
+    // Scrape Kube State Metrics (Kubernetes object state) - ULTRA-FAST for cluster state
     prometheus.scrape "kube_state_metrics" {
       targets = discovery.relabel.kube_state_metrics.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "5s"  // Fast for cluster state monitoring
-      scrape_timeout = "4s"   // Must be less than scrape_interval
+      scrape_interval = "1s"   // Ultra-fast for critical cluster state
+      scrape_timeout = "800ms" // Aggressive timeout for speed
     }
 
-    // Scrape Beyla eBPF metrics - Real-time for network/app insights
+    // Scrape Beyla eBPF metrics - MAXIMUM SPEED for network/app insights
     prometheus.scrape "beyla_metrics" {
       targets = discovery.relabel.beyla_services.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "2s"  // Near real-time for eBPF insights
-      scrape_timeout = "1500ms"  // Must be less than scrape_interval
+      scrape_interval = "500ms"  // Maximum speed for eBPF insights
+      scrape_timeout = "400ms"   // Ultra-aggressive timeout
     }
 
-    // Auto-discover pods with prometheus.io/scrape annotation - REAL-TIME for DQN adapter
+    // Auto-discover pods with prometheus.io/scrape annotation - MAXIMUM SPEED for DQN adapter
     prometheus.scrape "annotated_pods" {
       targets = discovery.relabel.annotated_pods.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "1s"  // Real-time for DQN decisions and metrics
-      scrape_timeout = "800ms"  // Must be less than scrape_interval
+      scrape_interval = "500ms"  // Maximum speed for DQN decisions
+      scrape_timeout = "400ms"   // Ultra-aggressive timeout for real-time decisions
     }
 
-    // Scrape cAdvisor for container metrics - Real-time container insights
+    // Scrape cAdvisor for container metrics - ULTRA-FAST container insights
     prometheus.scrape "cadvisor" {
       targets = discovery.relabel.cadvisor.output
       forward_to = [prometheus.remote_write.default.receiver]
-      scrape_interval = "5s"   // Container metrics every 5 seconds
-      scrape_timeout = "4s"    // Must be less than scrape_interval
+      scrape_interval = "1s"    // Ultra-fast container metrics
+      scrape_timeout = "800ms"  // Aggressive timeout for speed
       
       // Add job label to distinguish cAdvisor metrics
       job_name = "cadvisor"
@@ -228,7 +228,7 @@ data:
       }
     }
 
-    // Discover pods for log collection
+    // Discover pods for log collection - ULTRA-FAST discovery
     discovery.kubernetes "pods_logs" {
       role = "pod"
     }
