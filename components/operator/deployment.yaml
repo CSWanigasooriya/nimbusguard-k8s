@@ -50,6 +50,8 @@ spec:
         # === SIMPLIFIED AI CONFIGURATION ===
         - name: ENABLE_LLM_VALIDATION
           value: "false"     # DISABLED - Simplified DQN without LLM overrides
+        - name: ENABLE_EXPLORATION_LENIENCY
+          value: "false"     # Enable exploration leniency
 
         # === DQN HYPERPARAMETERS ===
         - name: DQN_GAMMA
