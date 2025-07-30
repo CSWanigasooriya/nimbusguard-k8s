@@ -213,7 +213,7 @@ spec:
               done
               
               echo ""
-              echo "✅ Completed $NUM_SCENARIOS balanced scenarios (scale-up/down/neutral)"
+              echo "Completed $NUM_SCENARIOS balanced scenarios (scale-up/down/neutral)"
             resources:
               requests: {cpu: "100m", memory: "128Mi"}
               limits:   {cpu: "300m", memory: "256Mi"}
